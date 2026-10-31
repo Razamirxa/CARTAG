@@ -86,7 +86,7 @@ export function SiteLayout() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-4 py-8 text-sm text-muted">
           <div>
             <Logo className="text-ink" />
-            <p className="mt-2">Anyone can reach you. Nobody gets your number.</p>
+            <p className="mt-2">Anyone can reach you. Your number stays off the page.</p>
           </div>
           <nav className="flex flex-wrap gap-x-5 gap-y-1 font-medium">
             <Link to="/shop" className="hover:text-ink">

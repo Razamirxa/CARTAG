@@ -101,7 +101,7 @@ export default function Home() {
       <section className="grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
         <div>
           <h1 className="display text-[clamp(2.4rem,6.2vw,4.6rem)]">
-            Anyone can reach you. Nobody gets your number.
+            Anyone can reach you. Your number stays off the page.
           </h1>
           <p className="mt-6 text-lg text-muted">
             CARTAG is a QR tag for your car or bike. Whoever scans it can call you or message you on WhatsApp. Your number sits
