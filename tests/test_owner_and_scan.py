@@ -328,6 +328,17 @@ def test_the_json_endpoint_gives_the_state_and_never_contact_details(world):
     assert client.get("/api/public/tags/ZZZZZZZZZZ").status_code == 404
 
 
+def test_checking_a_tag_through_the_json_route_is_not_counted_as_a_scan(world):
+    client = client_for(world["app"])
+    for code in (world["active"], world["sold"], "ZZZZZZZZZZ"):
+        client.get(f"/api/public/tags/{code}")
+    with SessionLocal() as db:
+        assert db.scalar(select(func.count()).select_from(ScanEvent)) == 0
+    scan(world, world["active"])
+    with SessionLocal() as db:
+        assert db.scalar(select(func.count()).select_from(ScanEvent)) == 1
+
+
 def test_someone_who_keeps_trying_codes_that_do_not_exist_gets_slowed_down():
     app, _ = make_app(rate_limits=True)
     client = client_for(app)

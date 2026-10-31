@@ -26,11 +26,12 @@ _OUTCOME = {
 }
 
 
-def lookup_public_tag(db: Session, raw_code: str, scan: ScanContext) -> dict[str, Any]:
+def lookup_public_tag(db: Session, raw_code: str, scan: ScanContext, record: bool = True) -> dict[str, Any]:
     """Looks up a tag for a person who just scanned it, and returns only what a finder may see.
 
     The result always has a "state": not_found, not_active, turned_off, retired or active. Only the
     active state carries owner details, and the phone numbers are only for the Call buttons.
+    A scan is recorded unless the caller is the website checking a tag's state (record=False).
     """
     code = normalize_tag_code(raw_code)
     tag = None
@@ -64,6 +65,8 @@ def lookup_public_tag(db: Session, raw_code: str, scan: ScanContext) -> dict[str
             "emergency": emergency,
         }
 
+    if not record:
+        return result
     # A logging problem must never stop someone from reaching the owner.
     try:
         db.add(

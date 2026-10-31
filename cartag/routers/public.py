@@ -24,7 +24,10 @@ def public_tag(
     limiters: Limiters = Depends(limiters_dep),
 ):
     """The state of a tag, for the website's activation page. Finders use the HTML page at /t/{code}."""
-    result = lookup_public_tag(db, code, ScanContext(ip_hash(request), request.headers.get("user-agent")))
+    # Checking a tag's state for the activation page is not a scan, so it is not counted as one.
+    result = lookup_public_tag(
+        db, code, ScanContext(ip_hash(request), request.headers.get("user-agent")), record=False
+    )
     if result["state"] == "not_found":
         limiters.scan_miss.record(client_ip(request) or "unknown")
         response.status_code = 404
