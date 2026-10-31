@@ -33,7 +33,12 @@ uv run python -m cartag.cli create-admin --email you@example.com --name "Your Na
    The site is at http://localhost:5173 and the team panel at http://localhost:5173/admin.
    API docs (development only) are at http://localhost:4000/api/docs.
 
-In development no SMS is sent. The one-time code is printed in the API log.
+In development no SMS is sent. The one-time code is written to the `cartag.sms` log. Plain `uvicorn` does not switch that
+logger on, so start the API with logging enabled, for example:
+
+```text
+uv run python -c "import logging,uvicorn; logging.basicConfig(level=logging.INFO); uvicorn.run('cartag.main:app', port=4000)"
+```
 
 ### Windows: folder names containing `&`
 
@@ -104,6 +109,14 @@ twice for an enum column, delete the duplicate lines.
 - Build the website (`npm run build`), run `uv run alembic upgrade head`, then
   `uv run uvicorn cartag.main:app --host 127.0.0.1 --port 4000`. The API serves `web/dist` itself.
 - Back up the database daily.
+
+## Preview deploy on Render
+
+`render.yaml`, `Dockerfile` and `docker-start.sh` deploy a free preview from GitHub: a web service and a PostgreSQL
+database. It runs with `APP_ENV=development` because production needs a real SMS provider first. The free web service
+sleeps when idle and the free database expires after 30 days, so use it for demos only and never print tags that point
+at its address. The first admin comes from `ADMIN_EMAIL` and `ADMIN_PASSWORD` (Render generates the password; read it in
+the service's Environment tab). One-time codes show in the service's Logs tab.
 
 ## Build status against the scope document
 

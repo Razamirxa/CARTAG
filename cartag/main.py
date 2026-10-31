@@ -1,4 +1,5 @@
 import logging
+import mimetypes
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -86,6 +87,8 @@ def create_app(
     dist = Path(settings.web_dist_dir).resolve()
     index = dist / "index.html"
     if index.exists():
+        # Some systems have no entry for woff2, which would be served as a generic download.
+        mimetypes.add_type("font/woff2", ".woff2")
         app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
 
         @app.get("/{path:path}", include_in_schema=False)
