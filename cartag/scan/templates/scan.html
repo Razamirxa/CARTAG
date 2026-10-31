@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="{{ s.html_lang }}" dir="{{ s.dir }}"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><meta name="referrer" content="no-referrer">
+<meta name="color-scheme" content="light dark"><title>{{ title }} · CARTAG</title>
+<style>
+:root{--bg:#f5f1e8;--card:#fcfaf6;--text:#0a0a0a;--muted:#5b5750;--line:#d8d0bd;--brand:#74152b;--call:#0a0a0a;--on-call:#f5f1e8;--wa:#1a8f4a;--sos:#b3261e}
+@media (prefers-color-scheme:dark){:root{--bg:#0a0a0a;--card:#151412;--text:#f5f1e8;--muted:#a09b91;--line:#2d2a26;--brand:#e58a9f;--call:#f5f1e8;--on-call:#0a0a0a;--sos:#ff8d82}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--text);font:16px/1.55 system-ui,-apple-system,"Segoe UI",Roboto,"Noto Naskh Arabic","Noto Nastaliq Urdu","Geeza Pro",Tahoma,sans-serif}
+[dir=rtl] body{line-height:1.95}
+main{max-width:28rem;margin:0 auto;padding:1rem 1rem 2rem}
+.top{display:flex;justify-content:space-between;align-items:center;padding:.4rem 0 1.4rem}
+.brand{display:inline-flex;align-items:center;gap:.55rem;font-weight:800;font-size:1.1rem;letter-spacing:.09em}
+.brand svg{width:1.15rem;height:1.45rem}
+.lang{color:var(--brand);text-decoration:none;font-weight:700;padding:.4rem .85rem;border:1.5px solid var(--line);border-radius:99px;font-size:.9rem}
+.tag{position:relative;background:var(--card);border:1.5px solid var(--line);border-radius:1.75rem;padding:2.6rem 1.4rem 1.5rem;margin-bottom:1rem}
+.tag:before{content:"";position:absolute;top:.85rem;left:50%;width:1rem;height:1rem;margin-left:-.5rem;border-radius:50%;background:var(--bg);border:1.5px solid var(--line)}
+h1{font-size:1.6rem;line-height:1.15;margin:0 0 .5rem;font-weight:800;letter-spacing:-.015em}
+[dir=rtl] h1{letter-spacing:0;line-height:1.5}
+p{margin:0 0 1rem;color:var(--muted)}
+.name{font-size:1.75rem;font-weight:800;letter-spacing:-.015em;line-height:1.2;margin:.9rem 0 1.1rem;padding-top:.9rem;border-top:1.5px solid var(--line);color:var(--text)}
+[dir=rtl] .name{letter-spacing:0;line-height:1.6}
+.label{display:block;font-size:.85rem;font-weight:600;color:var(--muted);margin-bottom:.1rem}
+.btn{display:flex;align-items:center;justify-content:center;gap:.65rem;width:100%;min-height:3.6rem;margin-top:.7rem;border-radius:99px;color:#fff;font-weight:800;font-size:1.1rem;text-decoration:none}
+.call{background:var(--call);color:var(--on-call)}.wa{background:var(--wa)}.alt{background:var(--brand);color:#fff}.sos{background:var(--sos);color:#fff}
+@media (prefers-color-scheme:dark){.sos{color:#1c0a08}.alt{color:#2a0a13}}
+.btn svg{width:1.4rem;height:1.4rem;fill:currentColor}
+.sos-card{border:2px solid var(--sos)}.sos-card:before{display:none}
+h2{font-size:1.15rem;margin:0 0 .8rem;color:var(--sos);font-weight:800}
+.row{display:flex;justify-content:space-between;align-items:baseline;gap:1rem;padding:.6rem 0;border-top:1.5px solid var(--line)}
+.row b{font-size:1.15rem}
+.note{font-size:.85rem;color:var(--muted);margin:.9rem 0 0}
+.fine{font-size:.85rem;color:var(--muted);text-align:center;margin:1.2rem .5rem 0}
+footer{text-align:center;color:var(--muted);font-size:.8rem;padding:1.2rem 0 1rem}
+a:focus-visible{outline:3px solid var(--brand);outline-offset:3px}
+</style></head><body><main>
+<div class="top"><span class="brand"><svg viewBox="0 0 24 30" aria-hidden="true"><rect x="1" y="1" width="22" height="28" rx="6" fill="var(--brand)"/><circle cx="12" cy="7" r="2.3" fill="var(--bg)"/><rect x="6" y="13" width="12" height="12" rx="2" fill="#f5f1e8"/><path d="M8 15h3v3H8zM13 15h3v3h-3zM8 20h3v3H8zM14 21h2v2h-2z" fill="#0a0a0a"/></svg>CARTAG</span><a class="lang" href="{{ switch_href }}">{{ s.switch_label }}</a></div>
+{% if state == "not_found" %}
+<div class="tag"><h1>{{ s.not_found_title }}</h1><p>{{ s.not_found_body }}</p></div>
+{% elif state == "not_active" %}
+<div class="tag"><h1>{{ s.not_active_title }}</h1><p>{{ s.not_active_body }}</p>
+<a class="btn alt" href="/activate/{{ code|urlencode }}">{{ s.activate }}</a></div>
+{% elif state == "turned_off" %}
+<div class="tag"><h1>{{ s.turned_off_title }}</h1><p>{{ s.turned_off_body }}</p></div>
+{% elif state == "retired" %}
+<div class="tag"><h1>{{ s.retired_title }}</h1><p>{{ s.retired_body }}</p></div>
+{% else %}
+<div class="tag"><h1>{{ s.active_title }}</h1><p>{{ s.active_subtitle }}</p>
+<div class="name"><span class="label">{{ s.owner }}</span><bdi>{{ owner.name }}</bdi></div>
+<a class="btn call" href="tel:{{ owner.phone }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.6 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.6 3.6a1 1 0 0 1-.25 1z"/></svg>{{ s.call }}</a>
+<a class="btn wa" href="https://wa.me/{{ owner.phone|replace('+', '') }}?text={{ s.whatsapp_message|urlencode }}" rel="noopener"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2a10 10 0 0 0-8.6 15.1L2 22l5.1-1.3A10 10 0 1 0 12 2zm5.2 14.1c-.2.6-1.3 1.2-1.8 1.2-.5.1-1 .2-3.2-.7-2.7-1.1-4.4-3.9-4.6-4.1-.1-.2-1.1-1.5-1.1-2.8s.7-2 1-2.3c.2-.3.5-.3.7-.3h.5c.2 0 .4 0 .6.5l.9 2.1c.1.2.1.4 0 .5l-.3.5-.4.4c-.1.2-.3.3-.1.6.2.3.8 1.3 1.7 2.1 1.2 1 2.1 1.3 2.4 1.5.3.1.5.1.6-.1l.9-1c.2-.3.4-.2.6-.1l2 1c.3.1.5.2.5.3 0 .1 0 .6-.2 1.2z"/></svg>{{ s.whatsapp }}</a>
+</div>
+{% if emergency %}
+<div class="tag sos-card" style="padding-top:1.5rem"><h2>{{ s.emergency_title }}</h2>
+{% if emergency.bloodGroup %}<div class="row"><span>{{ s.blood_group }}</span><b><bdi>{{ emergency.bloodGroup }}</bdi></b></div>{% endif %}
+<div class="row"><span>{{ s.emergency_contact }}</span><b><bdi>{{ emergency_contact_line }}</bdi></b></div>
+<a class="btn sos" href="tel:{{ emergency.contactPhone }}"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6.6 10.8a15 15 0 0 0 6.6 6.6l2.2-2.2a1 1 0 0 1 1-.25 11.4 11.4 0 0 0 3.6.6 1 1 0 0 1 1 1V20a1 1 0 0 1-1 1A17 17 0 0 1 3 4a1 1 0 0 1 1-1h3.5a1 1 0 0 1 1 1c0 1.25.2 2.45.6 3.6a1 1 0 0 1-.25 1z"/></svg>{{ s.call_emergency }}</a>
+<p class="note">{{ s.emergency_note }}</p></div>
+{% endif %}
+<p class="fine">{{ s.privacy_note }}</p>
+{% endif %}
+<footer>{{ s.powered_by }}</footer></main></body></html>

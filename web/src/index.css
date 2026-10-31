@@ -1,0 +1,132 @@
+@import "@fontsource-variable/archivo/wdth.css";
+@import "tailwindcss";
+
+/*
+ * CARTAG look. The client's locked colour system: Black #0A0A0A, Ivory #F5F1E8, Grey #8A8A8A, Burgundy #74152B.
+ *   Ivory is the page, Black is the text, Burgundy is the one accent, Grey is for lines and quiet text.
+ * Glacier exists only as a product colour (the tag art). The other tints below are mixed from those four.
+ * Colours are variables so light and dark mode switch without a dark: prefix on every class.
+ */
+:root {
+  --c-bg: #f5f1e8; /* ivory */
+  --c-surface: #fcfaf6;
+  --c-subtle: #ebe5d7;
+  --c-line: #d8d0bd;
+  --c-text: #0a0a0a; /* black */
+  --c-muted: #5b5750; /* grey #8A8A8A is too light for text on ivory, so quiet text uses a darker step */
+  --c-grey: #8a8a8a;
+  --c-brand: #74152b; /* burgundy */
+  --c-brand-hover: #5b0f21;
+  --c-on-brand: #f5f1e8;
+  --c-danger: #b42318;
+  --c-danger-bg: #fbe4e1;
+  --c-success: #1c6a46;
+  --c-success-bg: #dcefe4;
+  --c-warn: #85560a;
+  --c-warn-bg: #f7ebc9;
+  --c-ink-panel: #0a0a0a; /* admin sidebar and other dark surfaces */
+  --c-on-ink-panel: #f5f1e8;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --c-bg: #0a0a0a;
+    --c-surface: #151412;
+    --c-subtle: #1e1c19;
+    --c-line: #2d2a26;
+    --c-text: #f5f1e8;
+    --c-muted: #a09b91;
+    --c-grey: #8a8a8a;
+    --c-brand: #e58a9f;
+    --c-brand-hover: #f0a5b6;
+    --c-on-brand: #1a0710;
+    --c-danger: #ff8d82;
+    --c-danger-bg: #3a1b19;
+    --c-success: #74d6a2;
+    --c-success-bg: #12301f;
+    --c-warn: #f0c46c;
+    --c-warn-bg: #352a10;
+    --c-ink-panel: #000000;
+    --c-on-ink-panel: #f5f1e8;
+  }
+}
+
+@theme inline {
+  --font-sans: "Archivo Variable", system-ui, -apple-system, "Segoe UI", Roboto, "Noto Naskh Arabic", Tahoma, sans-serif;
+  --font-display: "Archivo Variable", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono: ui-monospace, "Cascadia Mono", Consolas, monospace;
+  --color-bg: var(--c-bg);
+  --color-surface: var(--c-surface);
+  --color-subtle: var(--c-subtle);
+  --color-line: var(--c-line);
+  --color-ink: var(--c-text);
+  --color-muted: var(--c-muted);
+  --color-brand: var(--c-brand);
+  --color-brand-hover: var(--c-brand-hover);
+  --color-on-brand: var(--c-on-brand);
+  --color-danger: var(--c-danger);
+  --color-danger-bg: var(--c-danger-bg);
+  --color-success: var(--c-success);
+  --color-success-bg: var(--c-success-bg);
+  --color-warn: var(--c-warn);
+  --color-warn-bg: var(--c-warn-bg);
+  --color-panel: var(--c-ink-panel);
+  --color-on-panel: var(--c-on-ink-panel);
+}
+
+@layer base {
+  html {
+    background: var(--c-bg);
+    color: var(--c-text);
+    -webkit-text-size-adjust: 100%;
+  }
+  body {
+    @apply font-sans antialiased;
+    min-height: 100vh;
+    font-size: 1rem;
+    line-height: 1.55;
+    font-optical-sizing: auto;
+  }
+  :focus-visible {
+    outline: 2px solid var(--c-brand);
+    outline-offset: 3px;
+  }
+  ::selection {
+    background: var(--c-brand);
+    color: var(--c-on-brand);
+  }
+  /* Body paragraphs stay under about 70 characters a line. */
+  p {
+    max-width: 68ch;
+  }
+}
+
+@layer components {
+  /* Headlines carry the brand: wide, heavy, tight. One family, a different width. */
+  .display {
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-stretch: 125%;
+    letter-spacing: -0.025em;
+    line-height: 0.98;
+  }
+  .heading {
+    font-family: var(--font-display);
+    font-weight: 750;
+    font-stretch: 112%;
+    letter-spacing: -0.015em;
+    line-height: 1.08;
+  }
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
+  }
+}

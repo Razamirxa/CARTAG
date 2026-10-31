@@ -1,0 +1,29 @@
+{
+  "name": "cartag",
+  "version": "0.1.0",
+  "private": true,
+  "description": "CARTAG QR management and tracking system: React frontend (web/). The API is Python in cartag/.",
+  "type": "module",
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "web"
+  ],
+  "scripts": {
+    "dev": "concurrently -n api,web -c blue,green \"uv run uvicorn cartag.main:app --reload --port 4000\" \"npm run dev -w web\"",
+    "build": "npm run build -w web",
+    "typecheck": "npm run typecheck -w web",
+    "lint": "eslint web"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.0.0",
+    "concurrently": "^9.0.0",
+    "eslint": "^9.0.0",
+    "typescript": "~5.9.3",
+    "typescript-eslint": "^8.0.0"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}

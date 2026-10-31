@@ -1,0 +1,21 @@
+# Python
+__pycache__/
+*.py[oc]
+.venv/
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+
+# Node
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Local config and generated files
+.env
+media/
+qr_output/
+
+# Local demo and test output (holds a local admin login and server logs)
+test-qr/
+screenshots/

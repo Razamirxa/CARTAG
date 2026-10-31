@@ -1,0 +1,58 @@
+[project]
+name = "cartag"
+version = "0.1.0"
+requires-python = ">=3.13"
+dependencies = [
+    "alembic>=1.20.0",
+    "argon2-cffi>=25.1.0",
+    "fastapi>=0.156.8",
+    "jinja2>=3.1.6",
+    "phonenumbers>=9.0.41",
+    "psycopg[binary]>=3.3.6",
+    "pydantic-settings>=2.16.1",
+    "reportlab>=5.0.1",
+    "segno>=1.6.6",
+    "sqlalchemy>=2.1.5",
+    "uvicorn[standard]>=0.54.0",
+]
+
+[dependency-groups]
+dev = [
+    "brotli>=1.2.1",
+    "fonttools>=4.68.0",
+    "httpx>=0.28.1",
+    "pillow>=13.0.0",
+    "pytest>=9.1.1",
+    "ruff>=0.17.1",
+    "zxing-cpp>=3.1.1",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+filterwarnings = ["ignore::DeprecationWarning"]
+
+[tool.ruff]
+line-length = 120
+target-version = "py313"
+extend-exclude = ["alembic/versions", "server", "web", "packages"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI's own pattern: Depends(...) and Query(...) in parameter defaults.
+extend-immutable-calls = ["fastapi.Depends", "fastapi.Query", "fastapi.Path"]
+
+[tool.ruff.lint.per-file-ignores]
+# Urdu text is long because it is written out in full.
+"cartag/scan/i18n.py" = ["E501"]
+# Generated outline data (scripts/outline_tag_text.py): one long path per line.
+"cartag/qr/tag_text.py" = ["E501"]
+
+[tool.ruff.lint.isort]
+# The "alembic" folder in this repo has the same name as the Alembic library.
+known-third-party = ["alembic"]
