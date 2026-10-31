@@ -313,13 +313,11 @@ def test_every_scan_is_recorded_with_a_hashed_address(world):
         assert "testclient" not in entry.ip_hash
 
 
-def test_the_json_endpoint_follows_the_same_privacy_rules(world):
+def test_the_json_endpoint_gives_the_state_and_never_contact_details(world):
     client = client_for(world["app"])
     active = client.get(f"/api/public/tags/{world['active']}").json()
-    assert active["state"] == "active"
-    assert active["owner"]["name"] == "Ali Raza"
-    assert active["emergency"] is None
-    assert "passwordHash" not in str(active)
+    assert active == {"state": "active", "code": world["active"]}
+    assert "Ali Raza" not in str(active) and "+92" not in str(active)
 
     assert client.get(f"/api/public/tags/{world['sold']}").json() == {
         "state": "not_active",
