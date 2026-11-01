@@ -105,7 +105,14 @@ twice for an enum column, delete the duplicate lines.
 ## Going live (checklist)
 
 - `APP_ENV=production`, `PUBLIC_BASE_URL` on https, a real `SMS_PROVIDER` (the app refuses to start with `console`).
-- `TRUST_PROXY=1` behind Nginx.
+- `TRUST_PROXY` is the number of reverse proxies in front of the app, counted exactly: 1 behind Nginx alone, 2 behind
+  Cloudflare and Nginx. Too low and every visitor looks like the proxy (one shared rate limit); too high and a visitor
+  can fake their address with an `X-Forwarded-For` header and dodge the limits.
+- Create the first admin once from the command line (`uv run python -m cartag.cli create-admin --email ... --name ...`).
+  Do not leave `ADMIN_PASSWORD` set in the server's environment afterwards.
+- Logins are locked after 5 wrong tries from one address (15 minutes) and after 25 from anywhere, so a stranger cannot
+  lock the real owner or admin out. SMS is the one cost an attacker can run up, so add a captcha (for example Cloudflare
+  Turnstile) to sign up and the send-a-code buttons when the real SMS provider is connected.
 - Build the website (`npm run build`), run `uv run alembic upgrade head`, then
   `uv run uvicorn cartag.main:app --host 127.0.0.1 --port 4000`. The API serves `web/dist` itself.
 - Back up the database daily.

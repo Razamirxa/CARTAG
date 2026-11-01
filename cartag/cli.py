@@ -20,7 +20,7 @@ from cartag.security import hash_password
 from cartag.services.audit import Actor, audit
 
 
-def create_admin(email: str, name: str) -> None:
+def create_admin(email: str, name: str, if_none: bool = False) -> None:
     email = email.strip().lower()
     if not re.fullmatch(r"[^@\s]+@[^@\s]+\.[^@\s]+", email):
         sys.exit("That does not look like an email address.")
@@ -29,6 +29,9 @@ def create_admin(email: str, name: str) -> None:
         sys.exit("The password must be at least 8 characters.")
 
     with SessionLocal() as db:
+        if if_none and db.scalar(select(Admin.id).limit(1)) is not None:
+            print("An admin already exists, nothing changed")
+            return
         admin = db.scalar(select(Admin).where(Admin.email == email))
         existed = admin is not None
         if admin is None:
@@ -50,9 +53,10 @@ def main() -> None:
     create = sub.add_parser("create-admin", help="Create an admin, or reset an admin's password")
     create.add_argument("--email", required=True)
     create.add_argument("--name", default="Admin")
+    create.add_argument("--if-none", action="store_true", help="Do nothing when an admin already exists")
     args = parser.parse_args()
     if args.command == "create-admin":
-        create_admin(args.email, args.name)
+        create_admin(args.email, args.name, args.if_none)
 
 
 if __name__ == "__main__":

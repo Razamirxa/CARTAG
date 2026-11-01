@@ -35,6 +35,8 @@ class Settings(BaseSettings):
     qr_physical_size_mm: float = Field(default=25, ge=10, le=200)
     # Number of reverse proxies in front of the app (Nginx = 1). 0 when exposed directly.
     trust_proxy: int = Field(default=0, ge=0, le=5)
+    # The interactive API docs. Always off in production; set API_DOCS=false to hide them in a preview too.
+    api_docs: bool = True
     # Folder with the built React app. The server serves it when it exists.
     web_dist_dir: Path = ROOT / "web" / "dist"
 

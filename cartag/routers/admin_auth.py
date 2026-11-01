@@ -23,7 +23,7 @@ from cartag.schemas import AdminLoginIn
 from cartag.security import verify_against_dummy, verify_password
 from cartag.services.audit import Actor, audit
 from cartag.services.sessions import create_admin_session, destroy_admin_session
-from cartag.services.throttle import assert_not_locked, clear_failures, record_failure
+from cartag.services.throttle import assert_login_allowed, clear_login_failures, record_login_failure
 
 router = APIRouter(prefix="/admin/auth", tags=["admin"])
 
@@ -45,8 +45,8 @@ def login(
     db: Session = Depends(get_db),
     settings: Settings = Depends(settings_dep),
 ):
-    throttle_key = f"admin:{body.email}"
-    assert_not_locked(db, throttle_key)
+    address = ip_hash(request)
+    assert_login_allowed(db, "admin", body.email, address)
 
     admin = db.scalar(select(Admin).where(Admin.email == body.email))
     if admin is not None and admin.disabled_at is None:
@@ -56,10 +56,10 @@ def login(
         ok = False
 
     if admin is None or not ok:
-        record_failure(db, throttle_key)
+        record_login_failure(db, "admin", body.email, address)
         raise unauthorized("Incorrect email or password.", "INVALID_CREDENTIALS")
 
-    clear_failures(db, throttle_key)
+    clear_login_failures(db, "admin", body.email)
     admin.last_login_at = datetime.now(UTC)
     audit(db, Actor.admin(admin.id), "admin.login", "Admin", admin.id)
     db.commit()

@@ -45,12 +45,13 @@ def create_app(
         yield
 
     # The interactive docs are handy in development but would expose the whole API shape in production.
+    docs_on = settings.api_docs and not settings.is_production
     app = FastAPI(
         title="CARTAG",
         lifespan=lifespan,
-        docs_url=None if settings.is_production else "/api/docs",
+        docs_url="/api/docs" if docs_on else None,
         redoc_url=None,
-        openapi_url=None if settings.is_production else "/api/openapi.json",
+        openapi_url="/api/openapi.json" if docs_on else None,
     )
     app.state.sms = sms or create_sms_provider(settings)
     # Online payment. The name "none" switches it off even when the settings turn it on (tests use this).

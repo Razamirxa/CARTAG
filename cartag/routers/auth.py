@@ -28,7 +28,7 @@ from cartag.services.audit import Actor, audit
 from cartag.services.otp import request_otp, verify_otp
 from cartag.services.sessions import create_user_session, destroy_user_session, revoke_user_sessions
 from cartag.services.sms import SmsProvider
-from cartag.services.throttle import assert_not_locked, clear_failures, record_failure
+from cartag.services.throttle import assert_login_allowed, clear_login_failures, record_login_failure
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 
@@ -88,8 +88,8 @@ def login(
     db: Session = Depends(get_db),
     settings: Settings = Depends(settings_dep),
 ):
-    throttle_key = f"user:{body.phone}"
-    assert_not_locked(db, throttle_key)
+    address = ip_hash(request)
+    assert_login_allowed(db, "user", body.phone, address)
 
     user = db.scalar(select(User).where(User.phone == body.phone))
     if user is not None:
@@ -99,13 +99,13 @@ def login(
         password_ok = False
 
     if user is None or not password_ok or user.status == UserStatus.DELETED:
-        record_failure(db, throttle_key)
+        record_login_failure(db, "user", body.phone, address)
         raise unauthorized("Incorrect mobile number or password.", "INVALID_CREDENTIALS")
     # The password was right, so telling the owner about the block leaks nothing.
     if user.status != UserStatus.ACTIVE:
         raise forbidden("This account has been blocked. Please contact support.", "ACCOUNT_BLOCKED")
 
-    clear_failures(db, throttle_key)
+    clear_login_failures(db, "user", body.phone)
     user.last_login_at = datetime.now(UTC)
     db.commit()
 
@@ -147,7 +147,7 @@ def password_reset_confirm(body: PasswordResetIn, db: Session = Depends(get_db))
     db.commit()
     # A reset means the old password may be compromised: end every session and clear lockouts.
     revoke_user_sessions(db, user.id)
-    clear_failures(db, f"user:{body.phone}")
+    clear_login_failures(db, "user", body.phone)
     audit(db, Actor.user(user.id), "user.password_reset", "User", user.id)
     db.commit()
     return {"ok": True}
