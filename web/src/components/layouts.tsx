@@ -3,19 +3,14 @@ import { Link, NavLink, Outlet, useNavigate } from "react-router";
 import { api } from "../lib/api";
 import { ADMIN_ME_KEY, ME_KEY, useAdminMe, useMe } from "../lib/auth";
 import { useCart } from "../lib/cart";
+import { Wordmark } from "./TagArt";
 import { Button, cx, linkButton } from "./ui";
 
-/** The wordmark: a small tag with its key-ring hole, then the name set wide and heavy. */
-export function Logo({ className, inverted }: { className?: string; inverted?: boolean }) {
+/** The wordmark as it is on the tag. It takes the surrounding text colour. */
+export function Logo({ className }: { className?: string }) {
   return (
-    <span className={cx("inline-flex items-center gap-2.5", className)}>
-      <svg viewBox="0 0 24 30" className="h-6 w-5" aria-hidden="true">
-        <rect x="1" y="1" width="22" height="28" rx="6" style={{ fill: inverted ? "currentColor" : "var(--c-brand)" }} />
-        <circle cx="12" cy="7" r="2.3" style={{ fill: inverted ? "var(--c-ink-panel)" : "var(--c-bg)" }} />
-        <rect x="6" y="13" width="12" height="12" rx="2" fill="#F5F1E8" />
-        <path d="M8 15h3v3H8zM13 15h3v3h-3zM8 20h3v3H8zM14 21h2v2h-2z" fill="#0A0A0A" />
-      </svg>
-      <span className="display text-[1.15rem]">CARTAG</span>
+    <span className={cx("inline-flex items-center", className)} role="img" aria-label="CARTAG">
+      <Wordmark className="h-[1.05rem] w-auto" />
     </span>
   );
 }
@@ -146,7 +141,7 @@ export function AdminLayout() {
     <div className="min-h-screen md:grid md:grid-cols-[15rem_1fr]">
       <aside className="bg-panel text-on-panel md:sticky md:top-0 md:flex md:h-screen md:flex-col">
         <div className="flex items-center justify-between px-5 py-4 md:block md:py-6">
-          <Logo inverted />
+          <Logo />
           <span className="text-sm text-on-panel/60 md:mt-1 md:block">Team panel</span>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-3 pb-3 md:flex-1 md:flex-col md:overflow-y-auto md:pb-4">

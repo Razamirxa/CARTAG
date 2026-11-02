@@ -3,6 +3,7 @@ from typing import Any
 
 from jinja2 import Environment, FileSystemLoader, select_autoescape
 
+from cartag.qr.tag_text import LOGO_CAR, LOGO_TAG
 from cartag.scan.i18n import STRINGS, Language
 
 # Autoescape is on for every .html template, so any text an owner typed is escaped by default.
@@ -12,6 +13,8 @@ _env = Environment(
     trim_blocks=True,
     lstrip_blocks=True,
 )
+# The wordmark as it is printed on the tag (heavy CAR, light TAG), drawn from the same outlines.
+_env.globals["wordmark_paths"] = (LOGO_CAR, LOGO_TAG)
 
 
 def render_scan_page(tag: dict[str, Any], lang: Language, code: str) -> tuple[int, str]:

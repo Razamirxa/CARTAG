@@ -1,16 +1,27 @@
 import type { ProductColour } from "../lib/api";
 import { QR_PATH, QR_SIZE } from "./qrArt";
-
-/** The four tag colours. `body` is the tag itself; `ink` is the printed wordmark. */
-export const TAG_COLOURS: Record<ProductColour, { body: string; edge: string; ink: string; name: string }> = {
-  BLACK: { body: "#0A0A0A", edge: "#2E2E2E", ink: "#F5F1E8", name: "Black" },
-  IVORY: { body: "#F5F1E8", edge: "#D9D0BC", ink: "#0A0A0A", name: "Ivory" },
-  BURGUNDY: { body: "#74152B", edge: "#93334A", ink: "#F5F1E8", name: "Burgundy" },
-  GLACIER: { body: "#B7D5E5", edge: "#98BACD", ink: "#10303F", name: "Glacier" },
-};
+import { CONTACT, LOGO_CAR, LOGO_TAG, SCAN } from "./tagText";
 
 /**
- * The CARTAG tag, drawn in SVG. The pattern is a real QR code (for a made-up tag code),
+ * The four tag colours, the same as the print files (cartag/qr/tag_art.py). `body` is the tag, `ink` the
+ * text and QR, `accent` the corner mark and `edge` the outline of a colour chip.
+ */
+export const TAG_COLOURS: Record<ProductColour, { body: string; ink: string; accent: string; edge: string; name: string }> = {
+  BLACK: { body: "#0A0A0A", ink: "#FAFAFA", accent: "#C4F818", edge: "#2E2E2E", name: "Black" },
+  IVORY: { body: "#F5F1E8", ink: "#0A0A0A", accent: "#D10A1D", edge: "#D9D0BC", name: "Ivory" },
+  BURGUNDY: { body: "#47031C", ink: "#FAFAFA", accent: "#D6D5D7", edge: "#6B1F37", name: "Burgundy" },
+  GLACIER: { body: "#BFD4E7", ink: "#0A0A0A", accent: "#7194B2", edge: "#9FB3C8", name: "Glacier" },
+};
+
+// The tag geometry on a 100 x 100 grid, as in the print files: corner radius 13.5, the QR 41 wide.
+const RADIUS = 13.5;
+const QR = { left: 29.5, top: 32.3, width: 41 };
+/** The corner mark, copied from _accent_ops in cartag/qr/tag_art.py: inset 3 from the edges, ends rounded. */
+const ACCENT_PATH =
+  "M83 3L86.5 3C92.299 3 97 7.701 97 13.5L97 18.6C97 19.533 96.687 19.654 96.06 18.962L82.54 4.038C81.913 3.346 82.067 3 83 3Z";
+
+/**
+ * The CARTAG tag as it is printed. The pattern is a real QR code (for a made-up tag code),
  * so the picture is the product and not a stand-in for it.
  */
 export function TagArt({
@@ -26,53 +37,54 @@ export function TagArt({
 }) {
   const c = TAG_COLOURS[colour];
   const id = `tag-${colour}`;
-  // The QR sits on a light plate whatever the colour of the tag, so it always looks scannable.
-  const plate = { x: 38, y: 92, size: 144 };
-  const pad = 14;
-  const scale = (plate.size - pad * 2) / QR_SIZE;
 
   return (
     <svg
-      viewBox="0 0 220 300"
+      viewBox="-6 -4 112 114"
       role={title ? "img" : "presentation"}
       aria-label={title}
       aria-hidden={title ? undefined : true}
       className={className}
     >
       <defs>
+        <clipPath id={`${id}-shape`}>
+          <rect width="100" height="100" rx={RADIUS} />
+        </clipPath>
         <linearGradient id={`${id}-sheen`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity={colour === "BLACK" ? 0.1 : 0.34} />
+          <stop offset="0" stopColor="#fff" stopOpacity={colour === "BLACK" ? 0.08 : 0.22} />
           <stop offset="0.55" stopColor="#fff" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity={colour === "BLACK" ? 0.25 : 0.1} />
+          <stop offset="1" stopColor="#000" stopOpacity={colour === "BLACK" ? 0.2 : 0.08} />
         </linearGradient>
         {shadow && (
-          <filter id={`${id}-shadow`} x="-20%" y="-10%" width="140%" height="130%">
-            <feDropShadow dx="0" dy="10" stdDeviation="9" floodColor="#0a0a0a" floodOpacity="0.26" />
+          <filter id={`${id}-shadow`} x="-20%" y="-15%" width="140%" height="140%">
+            <feDropShadow dx="0" dy="4" stdDeviation="3.5" floodColor="#0a0a0a" floodOpacity="0.26" />
           </filter>
         )}
       </defs>
-      <g filter={shadow ? `url(#${id}-shadow)` : undefined}>
-        <rect x="10" y="8" width="200" height="284" rx="30" fill={c.body} />
-        <rect x="10" y="8" width="200" height="284" rx="30" fill={`url(#${id}-sheen)`} />
-        <rect x="11.5" y="9.5" width="197" height="281" rx="28.5" fill="none" stroke={c.edge} strokeWidth="1.5" />
+      <rect width="100" height="100" rx={RADIUS} fill={c.body} filter={shadow ? `url(#${id}-shadow)` : undefined} />
+      <g clipPath={`url(#${id}-shape)`}>
+        <path d={ACCENT_PATH} fill={c.accent} />
+        <g fill={c.ink}>
+          <path d={LOGO_CAR} />
+          <path d={LOGO_TAG} />
+          <path d={CONTACT} />
+          <path d={SCAN} />
+        </g>
+        <g transform={`translate(${QR.left} ${QR.top}) scale(${QR.width / QR_SIZE})`}>
+          <path d={QR_PATH} fill={c.ink} shapeRendering="crispEdges" />
+        </g>
+        <rect width="100" height="100" fill={`url(#${id}-sheen)`} />
       </g>
-      {/* the hole for a key ring or lanyard */}
-      <circle cx="110" cy="44" r="12" fill="none" stroke={c.edge} strokeWidth="1.5" />
-      <circle cx="110" cy="44" r="9.5" style={{ fill: "var(--c-bg)" }} />
-      {/* QR plate */}
-      <rect x={plate.x} y={plate.y} width={plate.size} height={plate.size} rx="16" fill="#F5F1E8" />
-      <g transform={`translate(${plate.x + pad} ${plate.y + pad}) scale(${scale})`}>
-        <path d={QR_PATH} fill="#0A0A0A" shapeRendering="crispEdges" />
-      </g>
-      <text
-        x="110"
-        y="266"
-        textAnchor="middle"
-        fill={c.ink}
-        style={{ fontFamily: "var(--font-display)", fontWeight: 800, fontStretch: "125%", letterSpacing: "0.14em", fontSize: 19 }}
-      >
-        CARTAG
-      </text>
+    </svg>
+  );
+}
+
+/** The CARTAG wordmark from the tag: heavy CAR, light TAG. It takes the text colour. */
+export function Wordmark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="18.6 16.9 62.2 9.1" className={className} fill="currentColor" aria-hidden="true">
+      <path d={LOGO_CAR} />
+      <path d={LOGO_TAG} />
     </svg>
   );
 }

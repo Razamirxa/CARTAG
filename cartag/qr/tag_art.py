@@ -23,8 +23,13 @@ QR_WIDTH = 41.0
 QR_TOP = 32.3
 """The QR (without its quiet zone) is 41% of the tag, centred, as in the approved designs."""
 QR_LEFT = (100 - QR_WIDTH) / 2
-ACCENT = ((81.0, 0.0), (100 - RADIUS, 0.0), (100.0, RADIUS), (100.0, 20.0))
-"""The coloured corner: a straight cut from (81, 0) to (100, 20), following the tag's rounded corner."""
+ACCENT_INSET = 3.0
+"""The corner mark sits this far in from the top and right edges, with a rim of the tag colour around it."""
+ACCENT_FROM_X = 81.6
+ACCENT_TO_Y = 20.0
+"""Its straight side runs from (81.6, 3) on the top to (97, 20) on the right."""
+ACCENT_END = 1.4
+"""How far the two sharp ends are rounded off."""
 KAPPA = 0.5522847498
 """Control-point distance that makes a cubic curve a good quarter circle."""
 
@@ -44,20 +49,20 @@ class TagDesign:
     @property
     def inverted(self) -> bool:
         """Light QR modules on a dark tag. Many phone cameras read it, some scanners do not."""
-        return self.background in {"#74152B", "#0A0A0A"}
+        return sum(_rgb(self.background)) < sum(_rgb(self.ink))
 
 
-# The four approved designs. Black, Ivory and Burgundy are the client's locked palette. Glacier and the
-# corner colours were sampled from the approved artwork, so they need confirming against the
-# manufacturer's colour reference. Burgundy's silver corner is a flat light grey here; a metallic ink
-# or foil is the printer's call.
+# The four approved designs. Black and Ivory are the client's locked palette. The tag burgundy is the dark
+# wine of the final artwork (darker than the website's #74152B); it, Glacier and the corner colours were
+# sampled from that artwork, so they need confirming against the manufacturer's colour reference.
+# Burgundy's silver corner is a flat light grey here; a metallic ink or foil is the printer's call.
 DESIGNS: dict[str, TagDesign] = {
     design.key: design
     for design in (
         TagDesign("ivory", "Ivory", "#F5F1E8", "#0A0A0A", "#D10A1D"),
-        TagDesign("glacier", "Glacier", "#C0D0E0", "#0A0A0A", "#7194B2"),
-        TagDesign("burgundy", "Burgundy", "#74152B", "#F5F1E8", "#DCDCDE"),
-        TagDesign("black", "Black", "#0A0A0A", "#F5F1E8", "#C4F818"),
+        TagDesign("glacier", "Glacier", "#BFD4E7", "#0A0A0A", "#7194B2"),
+        TagDesign("burgundy", "Burgundy", "#47031C", "#FAFAFA", "#D6D5D7"),
+        TagDesign("black", "Black", "#0A0A0A", "#FAFAFA", "#C4F818"),
     )
 }
 
@@ -143,15 +148,37 @@ def _outline_ops() -> Steps:
     ]
 
 
+def _round_corner(
+    before: tuple[float, float], corner: tuple[float, float], after: tuple[float, float]
+) -> tuple[str, tuple[float, ...]]:
+    """A cubic that rounds a sharp corner, from a point on the incoming edge to one on the outgoing edge."""
+    c1 = (before[0] + 2 / 3 * (corner[0] - before[0]), before[1] + 2 / 3 * (corner[1] - before[1]))
+    c2 = (after[0] + 2 / 3 * (corner[0] - after[0]), after[1] + 2 / 3 * (corner[1] - after[1]))
+    return ("C", (*c1, *c2, *after))
+
+
 def _accent_ops() -> Steps:
-    """The corner mark: the tag's own top-right corner, cut off by a straight line."""
-    k = RADIUS * KAPPA
-    (x0, y0), (x1, y1), (x2, y2), (x3, y3) = ACCENT
+    """The corner mark: the tag's top-right corner, inset by a rim, cut off by a straight line, ends rounded."""
+    g, e = ACCENT_INSET, ACCENT_END
+    r = RADIUS - g
+    k = r * KAPPA
+    top_end = (ACCENT_FROM_X, g)
+    side_end = (100 - g, ACCENT_TO_Y)
+    dx, dy = top_end[0] - side_end[0], top_end[1] - side_end[1]
+    length = math.hypot(dx, dy)
+    ux, uy = dx / length, dy / length
+    on_side = (side_end[0], side_end[1] - e)
+    near_side = (side_end[0] + ux * e, side_end[1] + uy * e)
+    near_top = (top_end[0] - ux * e, top_end[1] - uy * e)
+    on_top = (top_end[0] + e, g)
     return [
-        ("M", (x0, y0)),
-        ("L", (x1, y1)),
-        ("C", (x1 + k, y1, x2, y2 - k, x2, y2)),
-        ("L", (x3, y3)),
+        ("M", on_top),
+        ("L", (100 - RADIUS, g)),
+        ("C", (100 - RADIUS + k, g, 100 - g, RADIUS - k, 100 - g, RADIUS)),
+        ("L", on_side),
+        _round_corner(on_side, side_end, near_side),
+        ("L", near_top),
+        _round_corner(near_top, top_end, on_top),
         ("Z", ()),
     ]
 

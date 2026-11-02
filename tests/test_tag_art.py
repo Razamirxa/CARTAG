@@ -1,17 +1,20 @@
 import re
 import zipfile
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 import zxingcpp
 from PIL import Image, ImageDraw
 
-from cartag.qr import matrix_for_tag
+from cartag.qr import matrix_for_tag, tag_text
 from cartag.qr.tag_art import (
     DESIGNS,
     QR_LEFT,
     QR_TOP,
     QR_WIDTH,
+    _accent_ops,
+    _svg_path,
     describe_tag,
     render_tag_eps,
     render_tag_pdf,
@@ -57,6 +60,13 @@ def test_dark_designs_are_flagged_as_inverted_and_light_ones_are_not():
 def test_every_approved_design_has_its_corner_mark():
     with_corner = {k for k, d in DESIGNS.items() if 'id="corner"' in render_tag_svg(MATRIX, d, 30)}
     assert with_corner == {"ivory", "glacier", "burgundy", "black"}
+
+
+def test_the_website_draws_the_same_tag_as_the_print_files():
+    web = Path(__file__).resolve().parent.parent / "web/src/components"
+    assert _svg_path(_accent_ops()) in (web / "TagArt.tsx").read_text(encoding="utf-8")
+    site_text = (web / "tagText.ts").read_text(encoding="utf-8")
+    assert all(f'"{d}"' in site_text for d in (tag_text.LOGO_CAR, tag_text.LOGO_TAG, tag_text.CONTACT, tag_text.SCAN))
 
 
 def test_text_is_outlines_not_live_text():

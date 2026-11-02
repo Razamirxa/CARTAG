@@ -11,7 +11,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
         className="relative hidden flex-col justify-between overflow-hidden p-9 md:flex"
         style={{ background: "#74152B", color: "#F5F1E8" }}
       >
-        <Logo inverted />
+        <Logo />
         <TagArt colour="IVORY" className="mx-auto my-8 w-44 -rotate-6" />
         <p className="heading text-xl">Your number stays behind the buttons.</p>
       </aside>

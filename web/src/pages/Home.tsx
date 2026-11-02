@@ -119,7 +119,6 @@ export default function Home() {
         </div>
 
         <div className="relative rounded-[2.25rem] bg-subtle px-6 pb-6 pt-10">
-          <div className="absolute inset-x-0 top-0 mx-auto h-16 w-px bg-line" aria-hidden="true" />
           <TagArt
             colour={colour}
             title={`A ${TAG_COLOURS[colour].name} CARTAG tag`}
