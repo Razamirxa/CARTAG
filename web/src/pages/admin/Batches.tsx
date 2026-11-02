@@ -27,14 +27,13 @@ interface BatchDetail {
 }
 
 /**
- * The three tag sizes the client chose (whole tag, in millimetres) and the QR size drawn for each.
- * The QR size includes its white border and is about 70% of the tag, which leaves room for the
- * hole and the wordmark. It is a starting point until the manufacturer confirms the printable area.
+ * The three tag sizes the client chose (whole tag: 2.7, 3.0 and 3.3 inches) and the bare QR size for each.
+ * The bare QR, white border included, is drawn as big as the QR on the finished tag (about 52% of it).
  */
 const TAG_SIZES = [
-  { tagMm: 27, qrMm: 19 },
-  { tagMm: 30, qrMm: 21 },
-  { tagMm: 33, qrMm: 23 },
+  { label: "2.7 in", tagMm: 68.58, qrMm: 35.9 },
+  { label: "3.0 in", tagMm: 76.2, qrMm: 39.9 },
+  { label: "3.3 in", tagMm: 83.82, qrMm: 43.9 },
 ] as const;
 
 /** The four approved tag designs. "qr" is the bare QR with no artwork. */
@@ -86,10 +85,11 @@ function ExportLinks({
 
 function BatchDetails({ id }: { id: string }) {
   const queryClient = useQueryClient();
-  const [tagMm, setTagMm] = useState<number>(30);
-  const [design, setDesign] = useState<DesignKey>("ivory");
+  const [tagMm, setTagMm] = useState<number>(TAG_SIZES[1].tagMm);
+  const [design, setDesign] = useState<DesignKey>("burgundy");
+  const tagSize = TAG_SIZES.find((size) => size.tagMm === tagMm) ?? TAG_SIZES[1];
   // With artwork the size is the whole tag; a bare QR file is sized by the derived QR width.
-  const sizeMm = design === "qr" ? (TAG_SIZES.find((size) => size.tagMm === tagMm) ?? TAG_SIZES[1]).qrMm : tagMm;
+  const sizeMm = design === "qr" ? tagSize.qrMm : tagMm;
   const detail = useQuery({
     queryKey: ["admin", "batch", id, sizeMm, design],
     queryFn: () => api<BatchDetail>(`/api/admin/batches/${id}?sizeMm=${sizeMm}${design === "qr" ? "" : `&design=${design}`}`),
@@ -156,15 +156,15 @@ function BatchDetails({ id }: { id: string }) {
               size.tagMm === tagMm ? "border-brand bg-brand text-on-brand" : "border-line hover:bg-subtle"
             }`}
           >
-            {size.tagMm} mm
+            {size.label}
           </button>
         ))}
       </div>
       <ExportLinks id={id} quantity={batch.quantity} pdfParts={pdfParts} sizeMm={sizeMm} design={design} />
       <p className="text-xs text-muted">
         {design === "qr"
-          ? `For a ${tagMm} mm tag the QR is drawn ${sizeMm} mm wide, white border included, and that size is in the file name.`
-          : `Each file is the finished ${tagMm} mm ${design} tag with its own QR, and the design and size are in the file name.`}{" "}
+          ? `For a ${tagSize.label} tag the QR is drawn ${sizeMm} mm wide, white border included, and that size is in the file name.`
+          : `Each file is the finished ${tagSize.label} (${tagMm} mm) ${design} tag with its own QR, and the design and size are in the file name.`}{" "}
         The CSV, the PDF pages and the file names all follow the same order, so the printer can match them.
       </p>
 

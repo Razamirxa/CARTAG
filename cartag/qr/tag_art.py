@@ -17,13 +17,13 @@ from cartag.qr import tag_text
 from cartag.qr.matrix import QrMatrix
 from cartag.qr.render import MM_TO_PT
 
-RADIUS = 15.0
+RADIUS = 13.5
 """Corner radius of the tag."""
 QR_WIDTH = 41.0
 QR_TOP = 32.3
 """The QR (without its quiet zone) is 41% of the tag, centred, as in the approved designs."""
 QR_LEFT = (100 - QR_WIDTH) / 2
-ACCENT = ((81.0, 0.0), (85.0, 0.0), (100.0, 15.0), (100.0, 20.0))
+ACCENT = ((81.0, 0.0), (100 - RADIUS, 0.0), (100.0, RADIUS), (100.0, 20.0))
 """The coloured corner: a straight cut from (81, 0) to (100, 20), following the tag's rounded corner."""
 KAPPA = 0.5522847498
 """Control-point distance that makes a cubic curve a good quarter circle."""
@@ -48,14 +48,15 @@ class TagDesign:
 
 
 # The four approved designs. Black, Ivory and Burgundy are the client's locked palette. Glacier and the
-# two corner colours were sampled from the approved artwork, so they need confirming against the
-# manufacturer's colour reference.
+# corner colours were sampled from the approved artwork, so they need confirming against the
+# manufacturer's colour reference. Burgundy's silver corner is a flat light grey here; a metallic ink
+# or foil is the printer's call.
 DESIGNS: dict[str, TagDesign] = {
     design.key: design
     for design in (
         TagDesign("ivory", "Ivory", "#F5F1E8", "#0A0A0A", "#D10A1D"),
-        TagDesign("glacier", "Glacier", "#C0D0E0", "#0A0A0A", None),
-        TagDesign("burgundy", "Burgundy", "#74152B", "#F5F1E8", None),
+        TagDesign("glacier", "Glacier", "#C0D0E0", "#0A0A0A", "#7194B2"),
+        TagDesign("burgundy", "Burgundy", "#74152B", "#F5F1E8", "#DCDCDE"),
         TagDesign("black", "Black", "#0A0A0A", "#F5F1E8", "#C4F818"),
     )
 }

@@ -23,8 +23,8 @@ OUT = ROOT / "cartag/qr/tag_text.py"
 CENTRE_X = 50.0
 LOGO = {"baseline": 25.7, "cap": 8.5, "width": 63.6, "car": (900, 117), "tag": (200, 117)}
 LINES = {
-    "contact": {"text": "CONTACT THE OWNER", "baseline": 82.5, "cap": 2.9, "width": 64.4, "axes": (400, 100)},
-    "scan": {"text": "SCAN.", "baseline": 91.2, "cap": 2.7, "width": 17.0, "axes": (800, 100)},
+    "contact": {"text": "CONTACT THE OWNER", "baseline": 79.6, "cap": 2.9, "width": 62.0, "axes": (400, 100)},
+    "scan": {"text": "SCAN.", "baseline": 88.8, "cap": 4.0, "width": 20.0, "axes": (800, 100)},
 }
 
 

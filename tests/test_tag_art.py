@@ -54,9 +54,9 @@ def test_dark_designs_are_flagged_as_inverted_and_light_ones_are_not():
     assert zxingcpp.read_barcodes(dark, try_invert=False) == []
 
 
-def test_corner_mark_only_on_designs_that_have_one():
+def test_every_approved_design_has_its_corner_mark():
     with_corner = {k for k, d in DESIGNS.items() if 'id="corner"' in render_tag_svg(MATRIX, d, 30)}
-    assert with_corner == {"ivory", "black"}
+    assert with_corner == {"ivory", "glacier", "burgundy", "black"}
 
 
 def test_text_is_outlines_not_live_text():
@@ -99,6 +99,11 @@ def test_export_with_a_design_names_the_file_after_it_and_is_audited():
     pdf = admin.get(f"/api/admin/batches/{batch_id}/export?format=pdf&sizeMm=30&design=black")
     assert pdf.content.startswith(b"%PDF") and "-black-30mm" in pdf.headers["content-disposition"]
     assert admin.get(f"/api/admin/batches/{batch_id}/export?format=svg&design=plaid").status_code == 400
+
+    # The client's sizes are 2.7, 3.0 and 3.3 inches, so those files are named in inches.
+    for mm, label in ((68.58, "2.7in"), (76.2, "3.0in"), (83.82, "3.3in")):
+        res = admin.get(f"/api/admin/batches/{batch_id}/export?format=pdf&sizeMm={mm}&design=burgundy")
+        assert f"-burgundy-{label}" in res.headers["content-disposition"]
 
     detail = admin.get(f"/api/admin/batches/{batch_id}?sizeMm=30&design=ivory").json()["print"]
     assert detail["physicalMm"] == 30 and detail["qrMm"] == pytest.approx(12.3, abs=0.01)

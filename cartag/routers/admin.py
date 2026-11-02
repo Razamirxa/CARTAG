@@ -80,6 +80,14 @@ def _file_slug(name: str) -> str:
     return slug or "batch"
 
 
+def _size_label(mm: float) -> str:
+    """The tag sizes are whole tenths of an inch (2.7, 3.0, 3.3), so they are named in inches; others in mm."""
+    tenths = mm / 25.4 * 10
+    if abs(tenths - round(tenths)) < 0.01:
+        return f"{round(tenths) / 10:.1f}in"
+    return f"{mm:g}mm"
+
+
 # ---------- overview ----------
 @router.get("/stats")
 def stats(db: Session = Depends(get_db)):
@@ -346,8 +354,8 @@ def batch_export(
     audit(db, Actor.admin(admin.id), "batch.export", "TagBatch", batch.id, details)
     db.commit()
 
-    # The size is in the name so the 27, 30 and 33 mm files of one batch cannot be mixed up.
-    base = f"cartag-{_file_slug(batch.name)}-{design + '-' if design else ''}{mm:g}mm"
+    # The size is in the name so the 2.7, 3.0 and 3.3 inch files of one batch cannot be mixed up.
+    base = f"cartag-{_file_slug(batch.name)}-{design + '-' if design else ''}{_size_label(mm)}"
     headers = {"Cache-Control": "no-store"}
 
     if format == "csv":
