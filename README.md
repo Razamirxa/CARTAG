@@ -115,6 +115,9 @@ twice for an enum column, delete the duplicate lines.
   Turnstile) to sign up and the send-a-code buttons when the real SMS provider is connected.
 - Build the website (`npm run build`), run `uv run alembic upgrade head`, then
   `uv run uvicorn cartag.main:app --host 127.0.0.1 --port 4000`. The API serves `web/dist` itself.
+- The build pre-renders the Home and Shop pages into finished HTML for search engines and link previews, and the
+  server adds `robots.txt` and `sitemap.xml` for `PUBLIC_BASE_URL`. After going live, add the site to Google Search
+  Console and submit `https://<domain>/sitemap.xml`.
 - Back up the database daily.
 
 ## Preview deploy on Render

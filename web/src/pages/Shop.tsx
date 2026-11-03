@@ -3,7 +3,7 @@ import { useState } from "react";
 import { Link } from "react-router";
 import { SIZE_LABEL } from "../components/orderBits";
 import { Swatch, TAG_COLOURS, TagArt } from "../components/TagArt";
-import { Alert, Badge, Button, Loading, PageHeader } from "../components/ui";
+import { Alert, Badge, Button, PageHeader } from "../components/ui";
 import { api, errorMessage, type Product, type ProductColour, type ProductSize } from "../lib/api";
 import { useCart } from "../lib/cart";
 import { rs } from "../lib/format";
@@ -13,13 +13,18 @@ const COLOURS: ProductColour[] = ["BLACK", "IVORY", "BURGUNDY", "GLACIER"];
 // Drawn to show how the sizes compare to each other, not their real measurements.
 const ART_WIDTH: Record<ProductSize, string> = { COMPACT: "w-28", STANDARD: "w-36", LARGE: "w-44" };
 
-function SizeCard({ size, products }: { size: ProductSize; products: Product[] }) {
+/**
+ * One size. While the prices load (and in the pre-rendered page) `products` is null: the card is drawn
+ * without a price and its button waits, so the page has its full text before any data arrives.
+ */
+function SizeCard({ size, products }: { size: ProductSize; products: Product[] | null }) {
   const cart = useCart();
   const [colour, setColour] = useState<ProductColour>("BLACK");
   const [added, setAdded] = useState(false);
-  const product = products.find((p) => p.colour === colour) ?? products[0];
-  if (!product) return null;
-  const inBasket = cart.lines[product.sku] ?? 0;
+  const product = products && (products.find((p) => p.colour === colour) ?? products[0]);
+  if (products && !product) return null;
+  const inBasket = product ? (cart.lines[product.sku] ?? 0) : 0;
+  const premium = product ? product.premium : colour === "BURGUNDY" || colour === "GLACIER";
 
   return (
     <article className="flex flex-col rounded-[1.5rem] border border-line bg-surface p-4 sm:p-5">
@@ -28,23 +33,29 @@ function SizeCard({ size, products }: { size: ProductSize; products: Product[] }
       </div>
       <div className="mt-5 flex items-baseline justify-between gap-3">
         <h2 className="heading text-2xl">{SIZE_LABEL[size]}</h2>
-        <p className="heading text-2xl tabular-nums">{rs(product.price)}</p>
+        {product ? (
+          <p className="heading text-2xl tabular-nums">{rs(product.price)}</p>
+        ) : (
+          <span className="h-7 w-20 animate-pulse rounded-lg bg-subtle" aria-label="Loading the price" />
+        )}
       </div>
       <p className="mt-1 min-h-6 text-sm text-muted" aria-live="polite">
         {TAG_COLOURS[colour].name}
-        {product.premium && " is a premium colour"}
+        {premium && " is a premium colour"}
       </p>
       <div className="-ms-2 mt-1 flex gap-0.5" role="group" aria-label={`Colour of the ${SIZE_LABEL[size]} tag`}>
         {COLOURS.map((c) => (
           <Swatch key={c} colour={c} selected={c === colour} onClick={() => setColour(c)} />
         ))}
       </div>
-      {product.description && <p className="mt-3 text-sm text-muted">{product.description}</p>}
+      {product?.description && <p className="mt-3 text-sm text-muted">{product.description}</p>}
       <div className="mt-5">
         <Button
           className="w-full"
           variant={added ? "secondary" : "primary"}
+          disabled={!product}
           onClick={() => {
+            if (!product) return;
             cart.add(product.sku);
             setAdded(true);
             setTimeout(() => setAdded(false), 1600);
@@ -92,13 +103,14 @@ export default function Shop() {
         <Badge tone="brand">Premium</Badge> Burgundy and Glacier cost a little more than Black and Ivory.
       </p>
 
-      {products.isPending && <Loading />}
       {products.error && <Alert>{errorMessage(products.error)}</Alert>}
       {products.data && products.data.length === 0 && <Alert tone="warn">The shop has no products right now. Please check back soon.</Alert>}
 
       <div className="grid gap-5 md:grid-cols-3">
-        {products.data &&
-          SIZES.map((size) => <SizeCard key={size} size={size} products={products.data.filter((p) => p.size === size)} />)}
+        {!products.error &&
+          SIZES.map((size) => (
+            <SizeCard key={size} size={size} products={products.data ? products.data.filter((p) => p.size === size) : null} />
+          ))}
       </div>
     </div>
   );

@@ -1,12 +1,13 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Suspense, lazy } from "react";
-import { BrowserRouter, Link, Route, Routes } from "react-router";
+import { Suspense, lazy, useEffect } from "react";
+import { Link, Route, Routes, useLocation } from "react-router";
 import { AdminLayout, SiteLayout } from "./components/layouts";
 import { Loading } from "./components/ui";
 import { ApiError } from "./lib/api";
 import { CartProvider } from "./lib/cart";
 import { RequireAdmin, RequireUser } from "./lib/auth";
 import Home from "./pages/Home";
+import { pageMeta } from "./seo";
 
 // Owner and admin screens load only when someone opens them, so the home page stays small.
 const Login = lazy(() => import("./pages/Login"));
@@ -37,15 +38,26 @@ const AdminOrders = lazy(() => import("./pages/admin/AdminOrders"));
 const AdminOrderDetail = lazy(() => import("./pages/admin/AdminOrderDetail"));
 const AdminProducts = lazy(() => import("./pages/admin/AdminProducts"));
 
-const queryClient = new QueryClient({
-  defaultOptions: {
-    queries: {
-      refetchOnWindowFocus: false,
-      // Retrying a 401, 404 or validation error will never help. Network and server errors get one more go.
-      retry: (failures, error) => !(error instanceof ApiError && error.status >= 400 && error.status < 500) && failures < 2,
+export function makeQueryClient() {
+  return new QueryClient({
+    defaultOptions: {
+      queries: {
+        refetchOnWindowFocus: false,
+        // Retrying a 401, 404 or validation error will never help. Network and server errors get one more go.
+        retry: (failures, error) => !(error instanceof ApiError && error.status >= 400 && error.status < 500) && failures < 2,
+      },
     },
-  },
-});
+  });
+}
+
+/** Keeps the tab title in step with the page; the pre-rendered pages already carry theirs in the HTML. */
+function PageTitle() {
+  const { pathname } = useLocation();
+  useEffect(() => {
+    document.title = pageMeta(pathname).title;
+  }, [pathname]);
+  return null;
+}
 
 function NotFound() {
   return (
@@ -59,11 +71,15 @@ function NotFound() {
   );
 }
 
-export default function App() {
+/**
+ * The whole site without its router: the browser wraps it in a BrowserRouter, the build-time
+ * pre-render (entry-server.tsx) in a StaticRouter. `hydrating` is true when the page arrived pre-rendered.
+ */
+export default function App({ queryClient, hydrating = false }: { queryClient: QueryClient; hydrating?: boolean }) {
   return (
     <QueryClientProvider client={queryClient}>
-      <CartProvider>
-      <BrowserRouter>
+      <CartProvider deferLoad={hydrating}>
+        <PageTitle />
         <Suspense fallback={<Loading />}>
           <Routes>
             <Route element={<SiteLayout />}>
@@ -104,7 +120,6 @@ export default function App() {
             </Route>
           </Routes>
         </Suspense>
-      </BrowserRouter>
       </CartProvider>
     </QueryClientProvider>
   );

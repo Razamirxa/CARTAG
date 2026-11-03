@@ -4,7 +4,7 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, FastAPI
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, PlainTextResponse, Response
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import text
 
@@ -91,13 +91,43 @@ def create_app(
         # Some systems have no entry for woff2, which would be served as a generic download.
         mimetypes.add_type("font/woff2", ".woff2")
         app.mount("/assets", StaticFiles(directory=dist / "assets"), name="assets")
+        base_url = settings.public_base_url.rstrip("/")
+        # The build turns the public pages into finished HTML: dist/index.html is Home, dist/shop/index.html
+        # is Shop. Every other page gets the empty shell, app.html (older builds only have index.html).
+        public_pages = ["/"] + sorted(f"/{page.parent.name}" for page in dist.glob("*/index.html"))
+        shell = dist / "app.html" if (dist / "app.html").exists() else index
+
+        def page(file: Path) -> HTMLResponse:
+            html = file.read_text(encoding="utf-8").replace("__PUBLIC_BASE_URL__", base_url)
+            return HTMLResponse(html, headers={"Cache-Control": "no-cache"})
+
+        @app.get("/robots.txt", include_in_schema=False)
+        def robots():
+            # Pages behind a login, the API and the scan pages (which carry noindex too) are not for search engines.
+            private = ["/admin", "/account", "/activate", "/cart", "/checkout", "/orders", "/pay", "/api/"]
+            private += ["/t/", "/T/"]
+            lines = ["User-agent: *", "Allow: /", *(f"Disallow: {path}" for path in private)]
+            return PlainTextResponse("\n".join([*lines, "", f"Sitemap: {base_url}/sitemap.xml", ""]))
+
+        @app.get("/sitemap.xml", include_in_schema=False)
+        def sitemap():
+            urls = "".join(f"<url><loc>{base_url}{path}</loc></url>" for path in public_pages)
+            xml = (
+                '<?xml version="1.0" encoding="UTF-8"?>\n'
+                f'<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">{urls}</urlset>\n'
+            )
+            return Response(xml, media_type="application/xml")
 
         @app.get("/{path:path}", include_in_schema=False)
         def spa(path: str):
             candidate = (dist / path).resolve()
-            if path and candidate.is_file() and dist in candidate.parents:
-                return FileResponse(candidate)
-            return FileResponse(index, headers={"Cache-Control": "no-cache"})
+            if dist != candidate and dist not in candidate.parents:
+                return page(shell)
+            if path and candidate.is_file():
+                return page(candidate) if candidate.suffix == ".html" else FileResponse(candidate)
+            if (candidate / "index.html").is_file():
+                return page(candidate / "index.html")
+            return page(shell)
 
     return app
 

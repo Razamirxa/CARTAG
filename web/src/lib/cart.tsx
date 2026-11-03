@@ -31,16 +31,28 @@ function load(): Lines {
   }
 }
 
-export function CartProvider({ children }: { children: ReactNode }) {
-  const [lines, setLines] = useState<Lines>(load);
+/**
+ * `deferLoad` starts with an empty basket and reads the saved one after the first render. A pre-rendered
+ * page needs that, because its HTML was made without a basket and the first render must match it.
+ */
+export function CartProvider({ children, deferLoad = false }: { children: ReactNode; deferLoad?: boolean }) {
+  const [lines, setLines] = useState<Lines>(() => (deferLoad ? {} : load()));
+  const [loaded, setLoaded] = useState(!deferLoad);
 
   useEffect(() => {
+    if (loaded) return;
+    setLines(load());
+    setLoaded(true);
+  }, [loaded]);
+
+  useEffect(() => {
+    if (!loaded) return;
     try {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(lines));
     } catch {
       // Private browsing or full storage: the basket still works until the page is closed.
     }
-  }, [lines]);
+  }, [lines, loaded]);
 
   const add = useCallback((sku: string, quantity = 1) => {
     setLines((current) => ({ ...current, [sku]: Math.min(20, (current[sku] ?? 0) + quantity) }));
