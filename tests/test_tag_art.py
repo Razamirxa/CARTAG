@@ -57,6 +57,27 @@ def test_dark_designs_are_flagged_as_inverted_and_light_ones_are_not():
     assert zxingcpp.read_barcodes(dark, try_invert=False) == []
 
 
+def _luminance(color: str) -> float:
+    def channel(c: float) -> float:
+        return c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4
+
+    r, g, b = (channel(int(color[i : i + 2], 16) / 255) for i in (1, 3, 5))
+    return 0.2126 * r + 0.7152 * g + 0.0722 * b
+
+
+@pytest.mark.parametrize("key", list(DESIGNS))
+def test_the_shading_keeps_the_qr_at_full_contrast(key):
+    design = DESIGNS[key]
+    ink = _luminance(design.ink)
+    for _, color in design.face.stops:
+        light, dark = sorted((ink, _luminance(color)), reverse=True)
+        assert (light + 0.05) / (dark + 0.05) >= 7, color
+    # The shading is drawn under the QR, never over it.
+    svg = render_tag_svg(MATRIX, design, 30)
+    assert svg.index('id="face"') < svg.index('id="qr"') and "radialGradient" in svg
+    assert "shfill" in render_tag_eps(MATRIX, design, 30)
+
+
 def test_every_approved_design_has_its_corner_mark():
     with_corner = {k for k, d in DESIGNS.items() if 'id="corner"' in render_tag_svg(MATRIX, d, 30)}
     assert with_corner == {"ivory", "glacier", "burgundy", "black"}
@@ -68,6 +89,13 @@ def test_the_website_draws_the_same_tag_as_the_print_files():
     assert _svg_path(_accent_ops()) in tag_art
     for d in DESIGNS.values():
         assert f'body: "{d.background}", ink: "{d.ink}", accent: "{d.accent}"' in tag_art
+        glow, _, shade = (color for _, color in d.face.stops)
+        assert f'side: "{d.edge}", glow: "{glow}", shade: "{shade}"' in tag_art
+        corner = d.accent_paint.stops
+        if d.metallic:
+            assert all(f'[{offset:g}, "{color}"]' in tag_art for offset, color in corner)
+        else:
+            assert f'accentShade: "{corner[0][1]}"' in tag_art
     site_text = (web / "tagText.ts").read_text(encoding="utf-8")
     assert all(f'"{d}"' in site_text for d in (tag_text.LOGO_CAR, tag_text.LOGO_TAG, tag_text.CONTACT, tag_text.SCAN))
 

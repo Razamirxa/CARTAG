@@ -2,20 +2,45 @@ import type { ProductColour } from "../lib/api";
 import { QR_PATH, QR_SIZE } from "./qrArt";
 import { CONTACT, LOGO_CAR, LOGO_TAG, SCAN } from "./tagText";
 
-/**
- * The four tag colours, the same as the print files (cartag/qr/tag_art.py). `body` is the tag, `ink` the
- * text and QR, `accent` the corner mark and `edge` the outline of a colour chip.
- */
-export const TAG_COLOURS: Record<ProductColour, { body: string; ink: string; accent: string; edge: string; name: string }> = {
-  BLACK: { body: "#0D0D0D", ink: "#FAFAFA", accent: "#C4FA1C", edge: "#2E2E2E", name: "Black" },
-  IVORY: { body: "#F9F6F1", ink: "#0A0A0A", accent: "#D20C1E", edge: "#D9D0BC", name: "Ivory" },
-  BURGUNDY: { body: "#47031C", ink: "#FAFAFA", accent: "#F7F7F7", edge: "#6B1F37", name: "Burgundy" },
-  GLACIER: { body: "#BBD0E3", ink: "#0A0A0A", accent: "#7194B2", edge: "#9FB3C8", name: "Glacier" },
+type TagColour = {
+  body: string;
+  ink: string;
+  accent: string;
+  edge: string;
+  name: string;
+  side: string;
+  glow: string;
+  shade: string;
+  accentShade: string | null;
 };
 
-// The tag geometry on a 100 x 100 grid, as in the print files: corner radius 13.5, the QR 41 wide.
+/**
+ * The four tag colours, the same as the print files (cartag/qr/tag_art.py). `body` is the tag, `ink` the
+ * text and QR, `accent` the corner mark and `edge` the outline of a colour chip. `side` is the band that
+ * shows the tag's thickness, `glow` and `shade` the light and dark ends of the face shading, and
+ * `accentShade` the dark end of the corner mark (null where the corner is polished silver).
+ */
+export const TAG_COLOURS: Record<ProductColour, TagColour> = {
+  BLACK: { body: "#0D0D0D", ink: "#FAFAFA", accent: "#C4FA1C", edge: "#2E2E2E", name: "Black", side: "#343434", glow: "#2A2A2A", shade: "#070707", accentShade: "#A1CD17" },
+  IVORY: { body: "#F9F6F1", ink: "#0A0A0A", accent: "#D20C1E", edge: "#D9D0BC", name: "Ivory", side: "#B3B1AE", glow: "#FCFBF8", shade: "#E8E5E0", accentShade: "#AC0A19" },
+  BURGUNDY: { body: "#47031C", ink: "#FAFAFA", accent: "#F7F7F7", edge: "#6B1F37", name: "Burgundy", side: "#330214", glow: "#5D2137", shade: "#27020F", accentShade: null },
+  GLACIER: { body: "#BBD0E3", ink: "#0A0A0A", accent: "#7194B2", edge: "#9FB3C8", name: "Glacier", side: "#8796A3", glow: "#DDE8F1", shade: "#AEC1D3", accentShade: "#5D7992" },
+};
+
+/** Polished silver for Burgundy's corner, as offset and colour. */
+const SILVER: [number, string][] = [
+  [0, "#9C9C9E"],
+  [0.35, "#E2E2E4"],
+  [0.55, "#FFFFFF"],
+  [0.75, "#F7F7F7"],
+  [1, "#B9B9BB"],
+];
+
+// The tag geometry on a 100 x 100 grid, as in the print files: corner radius 13.5, the QR 41 wide, the
+// face 1.4 short of the bottom so the thickness band shows, the shading centred at (40, 30).
 const RADIUS = 13.5;
 const QR = { left: 29.5, top: 32.3, width: 41 };
+const FACE_HEIGHT = 100 - 1.4;
 /** The corner mark, copied from _accent_ops in cartag/qr/tag_art.py: inset 3 from the edges, ends rounded. */
 const ACCENT_PATH =
   "M83 3L86.5 3C92.299 3 97 7.701 97 13.5L97 18.6C97 19.533 96.687 19.654 96.06 18.962L82.54 4.038C81.913 3.346 82.067 3 83 3Z";
@@ -50,10 +75,17 @@ export function TagArt({
         <clipPath id={`${id}-shape`}>
           <rect width="100" height="100" rx={RADIUS} />
         </clipPath>
-        <linearGradient id={`${id}-sheen`} x1="0" y1="0" x2="1" y2="1">
-          <stop offset="0" stopColor="#fff" stopOpacity={colour === "BLACK" ? 0.08 : 0.22} />
-          <stop offset="0.55" stopColor="#fff" stopOpacity="0" />
-          <stop offset="1" stopColor="#000" stopOpacity={colour === "BLACK" ? 0.2 : 0.08} />
+        <radialGradient id={`${id}-face`} gradientUnits="userSpaceOnUse" cx="40" cy="30" r="92">
+          <stop offset="0" stopColor={c.glow} />
+          <stop offset="0.6" stopColor={c.body} />
+          <stop offset="1" stopColor={c.shade} />
+        </radialGradient>
+        <linearGradient id={`${id}-corner`} gradientUnits="userSpaceOnUse" x1="97" y1="3" x2="88.5" y2="12.2">
+          {(c.accentShade ? ([[0, c.accentShade], [0.6, c.accent], [1, c.accent]] as [number, string][]) : SILVER).map(
+            ([offset, color]) => (
+              <stop key={offset} offset={offset} stopColor={color} />
+            ),
+          )}
         </linearGradient>
         {shadow && (
           <filter id={`${id}-shadow`} x="-20%" y="-15%" width="140%" height="140%">
@@ -61,9 +93,10 @@ export function TagArt({
           </filter>
         )}
       </defs>
-      <rect width="100" height="100" rx={RADIUS} fill={c.body} filter={shadow ? `url(#${id}-shadow)` : undefined} />
+      <rect width="100" height="100" rx={RADIUS} fill={c.side} filter={shadow ? `url(#${id}-shadow)` : undefined} />
+      <rect width="100" height={FACE_HEIGHT} rx={RADIUS} fill={`url(#${id}-face)`} />
       <g clipPath={`url(#${id}-shape)`}>
-        <path d={ACCENT_PATH} fill={c.accent} />
+        <path d={ACCENT_PATH} fill={`url(#${id}-corner)`} />
         <g fill={c.ink}>
           <path d={LOGO_CAR} />
           <path d={LOGO_TAG} />
@@ -73,7 +106,6 @@ export function TagArt({
         <g transform={`translate(${QR.left} ${QR.top}) scale(${QR.width / QR_SIZE})`}>
           <path d={QR_PATH} fill={c.ink} shapeRendering="crispEdges" />
         </g>
-        <rect width="100" height="100" fill={`url(#${id}-sheen)`} />
       </g>
     </svg>
   );

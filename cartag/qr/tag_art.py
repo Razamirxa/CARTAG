@@ -2,6 +2,11 @@
 
 Everything is drawn on a 100 x 100 tag and scaled to the physical size, so the three formats agree.
 The text is already outlines (tag_text.py), so a print shop needs no font.
+
+The look follows the client's mockups: a slightly darker band along the bottom edge for the tag's
+thickness, a soft glow on the face that darkens towards the corners, and a shaded corner mark (polished
+silver on Burgundy). The shading sits under the text and the QR, which stay flat and solid so a camera
+sees full contrast.
 """
 
 import math
@@ -9,7 +14,9 @@ import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from io import BytesIO
+from typing import Literal
 
+from reportlab.lib.colors import HexColor
 from reportlab.pdfgen import canvas
 from reportlab.pdfgen.canvas import FILL_NON_ZERO
 
@@ -32,8 +39,36 @@ ACCENT_END = 1.4
 """How far the two sharp ends are rounded off."""
 KAPPA = 0.5522847498
 """Control-point distance that makes a cubic curve a good quarter circle."""
+EDGE = 1.4
+"""Height of the band along the bottom that shows the tag's thickness; the face ends this far above."""
+GLOW = (40.0, 30.0, 92.0)
+"""Centre and radius of the face shading: lightest near the top left, darkest in the far corners."""
+ACCENT_SHINE = (97.0, 3.0, 88.5, 12.2)
+"""The corner mark's shading runs from the tag's corner to the middle of the mark's straight side."""
 
 TEXT_PATHS = (tag_text.LOGO_CAR, tag_text.LOGO_TAG, tag_text.CONTACT, tag_text.SCAN)
+
+
+@dataclass(frozen=True)
+class Gradient:
+    """A shading in tag units (y down). Linear coords are x0 y0 x1 y1, radial ones cx cy r."""
+
+    kind: Literal["linear", "radial"]
+    coords: tuple[float, ...]
+    stops: tuple[tuple[float, str], ...]
+
+
+Paint = str | Gradient
+
+
+def _rgb(color: str) -> tuple[float, float, float]:
+    return tuple(int(color[i : i + 2], 16) / 255 for i in (1, 3, 5))  # type: ignore[return-value]
+
+
+def _mix(color: str, toward: str, amount: float) -> str:
+    """`color` moved `amount` (0 to 1) of the way to `toward`, as #RRGGBB."""
+    mixed = (a + (b - a) * amount for a, b in zip(_rgb(color), _rgb(toward), strict=True))
+    return "#" + "".join(f"{round(c * 255):02X}" for c in mixed)
 
 
 @dataclass(frozen=True)
@@ -45,29 +80,55 @@ class TagDesign:
     """Colour of the text and the QR modules."""
     accent: str | None
     """Colour of the corner mark, if the design has one."""
+    metallic: bool = False
+    """The corner mark is polished silver rather than a flat colour."""
 
     @property
     def inverted(self) -> bool:
         """Light QR modules on a dark tag. Many phone cameras read it, some scanners do not."""
         return sum(_rgb(self.background)) < sum(_rgb(self.ink))
 
+    @property
+    def _near_black(self) -> bool:
+        return sum(_rgb(self.background)) < 0.3
+
+    @property
+    def edge(self) -> str:
+        """The thickness band: darker than the face, or lighter on a black tag where darker would not show."""
+        if self._near_black:
+            return _mix(self.background, "#FFFFFF", 0.16)
+        return _mix(self.background, "#000000", 0.28)
+
+    @property
+    def face(self) -> Gradient:
+        """The face: a little lighter near the top left, the client's colour in the middle, darker at the corners."""
+        light, dark = (0.12, 0.45) if self.inverted else (0.5, 0.07)
+        stops = ((0.0, _mix(self.background, "#FFFFFF", light)), (0.6, self.background))
+        return Gradient("radial", GLOW, (*stops, (1.0, _mix(self.background, "#000000", dark))))
+
+    @property
+    def accent_paint(self) -> Gradient | None:
+        if not self.accent:
+            return None
+        if self.metallic:
+            stops = ((0.0, "#9C9C9E"), (0.35, "#E2E2E4"), (0.55, "#FFFFFF"), (0.75, self.accent), (1.0, "#B9B9BB"))
+        else:
+            stops = ((0.0, _mix(self.accent, "#000000", 0.18)), (0.6, self.accent), (1.0, self.accent))
+        return Gradient("linear", ACCENT_SHINE, stops)
+
 
 # The four approved designs. Tag and corner colours are the client's own codes for the tags (the tag
-# burgundy is darker than the website's #74152B). Burgundy's silver corner is a flat near-white here; a
+# burgundy is darker than the website's #74152B). Burgundy's corner is drawn as polished silver; a
 # metallic ink or foil is the printer's call.
 DESIGNS: dict[str, TagDesign] = {
     design.key: design
     for design in (
         TagDesign("ivory", "Ivory", "#F9F6F1", "#0A0A0A", "#D20C1E"),
         TagDesign("glacier", "Glacier", "#BBD0E3", "#0A0A0A", "#7194B2"),
-        TagDesign("burgundy", "Burgundy", "#47031C", "#FAFAFA", "#F7F7F7"),
+        TagDesign("burgundy", "Burgundy", "#47031C", "#FAFAFA", "#F7F7F7", metallic=True),
         TagDesign("black", "Black", "#0D0D0D", "#FAFAFA", "#C4FA1C"),
     )
 }
-
-
-def _rgb(color: str) -> tuple[float, float, float]:
-    return tuple(int(color[i : i + 2], 16) / 255 for i in (1, 3, 5))  # type: ignore[return-value]
 
 
 def _qr_rects(matrix: QrMatrix) -> list[tuple[float, float, float]]:
@@ -104,10 +165,16 @@ def render_tag_svg(matrix: QrMatrix, design: TagDesign, tag_mm: float) -> str:
     parts = [
         '<?xml version="1.0" encoding="UTF-8"?>\n',
         f'<svg xmlns="http://www.w3.org/2000/svg" width="{mm}mm" height="{mm}mm" viewBox="0 0 100 100">',
-        f'<path id="tag" d="{_svg_path(_outline_ops())}" fill="{design.background}"/>',
     ]
-    if design.accent:
-        parts.append(f'<path id="corner" d="{_svg_path(_accent_ops())}" fill="{design.accent}"/>')
+    shading = _shaded_shapes(design)
+    parts.append("<defs>")
+    for name, paint, _ in shading:
+        if isinstance(paint, Gradient):
+            parts.append(_svg_gradient(f"{name}-shade", paint))
+    parts.append("</defs>")
+    for name, paint, steps in shading:
+        fill = f"url(#{name}-shade)" if isinstance(paint, Gradient) else paint
+        parts.append(f'<path id="{name}" d="{_svg_path(steps)}" fill="{fill}"/>')
     parts.append(f'<g id="text" fill="{design.ink}">')
     parts.extend(f'<path d="{d}"/>' for d in TEXT_PATHS)
     parts.append("</g>")
@@ -117,6 +184,18 @@ def render_tag_svg(matrix: QrMatrix, design: TagDesign, tag_mm: float) -> str:
     )
     parts.append("</svg>\n")
     return "".join(parts)
+
+
+def _svg_gradient(gradient_id: str, gradient: Gradient) -> str:
+    stops = "".join(f'<stop offset="{_num(offset)}" stop-color="{color}"/>' for offset, color in gradient.stops)
+    if gradient.kind == "radial":
+        cx, cy, r = gradient.coords
+        attrs = f'cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(r)}"'
+    else:
+        x1, y1, x2, y2 = gradient.coords
+        attrs = f'x1="{_num(x1)}" y1="{_num(y1)}" x2="{_num(x2)}" y2="{_num(y2)}"'
+    tag = f"{gradient.kind}Gradient"
+    return f'<{tag} id="{gradient_id}" gradientUnits="userSpaceOnUse" {attrs}>{stops}</{tag}>'
 
 
 _COMMAND = re.compile(r"([MLCZ])([^MLCZ]*)")
@@ -130,17 +209,20 @@ def _commands(path: str) -> list[tuple[str, list[float]]]:
 Steps = list[tuple[str, tuple[float, ...]]]
 
 
-def _outline_ops() -> Steps:
-    """The tag outline (y down, 100 units): straight edges joined by quarter-circle corners."""
-    r, k = RADIUS, RADIUS * KAPPA
+def _outline_ops(bottom: float = 100.0) -> Steps:
+    """The tag outline (y down, 100 units): straight edges joined by quarter-circle corners.
+
+    `bottom` lifts the lower edge, which gives the face that sits above the thickness band.
+    """
+    r, k, b = RADIUS, RADIUS * KAPPA, bottom
     return [
         ("M", (r, 0.0)),
         ("L", (100 - r, 0.0)),
         ("C", (100 - r + k, 0.0, 100.0, r - k, 100.0, r)),
-        ("L", (100.0, 100 - r)),
-        ("C", (100.0, 100 - r + k, 100 - r + k, 100.0, 100 - r, 100.0)),
-        ("L", (r, 100.0)),
-        ("C", (r - k, 100.0, 0.0, 100 - r + k, 0.0, 100 - r)),
+        ("L", (100.0, b - r)),
+        ("C", (100.0, b - r + k, 100 - r + k, b, 100 - r, b)),
+        ("L", (r, b)),
+        ("C", (r - k, b, 0.0, b - r + k, 0.0, b - r)),
         ("L", (0.0, r)),
         ("C", (0.0, r - k, r - k, 0.0, r, 0.0)),
         ("Z", ()),
@@ -186,18 +268,42 @@ def _svg_path(steps: Steps) -> str:
     return "".join(cmd + " ".join(_num(n) for n in args) for cmd, args in steps)
 
 
-def _all_shapes(design: TagDesign) -> list[tuple[str, Steps]]:
-    """Every filled shape except the QR, as (colour, steps) from back to front."""
-    shapes = [(design.background, _outline_ops())]
-    if design.accent:
-        shapes.append((design.accent, _accent_ops()))
+def _shaded_shapes(design: TagDesign) -> list[tuple[str, Paint, Steps]]:
+    """The tag body and corner mark as (name, paint, steps), from back to front."""
+    shapes: list[tuple[str, Paint, Steps]] = [
+        ("tag", design.edge, _outline_ops()),
+        ("face", design.face, _outline_ops(100 - EDGE)),
+    ]
+    if design.accent_paint:
+        shapes.append(("corner", design.accent_paint, _accent_ops()))
+    return shapes
+
+
+def _all_shapes(design: TagDesign) -> list[tuple[Paint, Steps]]:
+    """Every filled shape except the QR, as (paint, steps) from back to front."""
+    shapes = [(paint, steps) for _, paint, steps in _shaded_shapes(design)]
     for d in TEXT_PATHS:
         shapes.append((design.ink, [(cmd, tuple(args)) for cmd, args in _commands(d)]))
     return shapes
 
 
+def _ps_function(stops: tuple[tuple[float, str], ...]) -> str:
+    """A PostScript function from 0..1 to RGB through the stops (a stitching function for more than two)."""
+
+    def segment(c0: str, c1: str) -> str:
+        a, b = (" ".join(f"{v:.4f}" for v in _rgb(c)) for c in (c0, c1))
+        return f"<< /FunctionType 2 /Domain [0 1] /C0 [{a}] /C1 [{b}] /N 1 >>"
+
+    parts = [segment(stops[i][1], stops[i + 1][1]) for i in range(len(stops) - 1)]
+    if len(parts) == 1:
+        return parts[0]
+    bounds = " ".join(_num(offset) for offset, _ in stops[1:-1])
+    encode = " ".join("0 1" for _ in parts)
+    return f"<< /FunctionType 3 /Domain [0 1] /Functions [{' '.join(parts)}] /Bounds [{bounds}] /Encode [{encode}] >>"
+
+
 def render_tag_eps(matrix: QrMatrix, design: TagDesign, tag_mm: float, title: str = "CARTAG tag") -> str:
-    """Encapsulated PostScript: filled paths only, in RGB, y pointing up."""
+    """Encapsulated PostScript: filled paths and smooth shadings (PostScript 3), in RGB, y pointing up."""
     side = tag_mm * MM_TO_PT
     scale = side / 100
     lines = [
@@ -206,6 +312,7 @@ def render_tag_eps(matrix: QrMatrix, design: TagDesign, tag_mm: float, title: st
         f"%%HiResBoundingBox: 0 0 {side:.3f} {side:.3f}",
         f"%%Title: {re.sub(r'[^\x20-\x7e]', '', title)}",
         "%%Creator: CARTAG",
+        "%%LanguageLevel: 3",
         "%%EndComments",
         "gsave",
         f"{scale:.6f} {scale:.6f} scale",
@@ -214,9 +321,12 @@ def render_tag_eps(matrix: QrMatrix, design: TagDesign, tag_mm: float, title: st
     def flip(y: float) -> str:
         return _num(100 - y)
 
-    def emit(color: str, steps: Steps) -> None:
-        r, g, b = _rgb(color)
-        lines.append(f"{r:.4f} {g:.4f} {b:.4f} setrgbcolor")
+    def emit(paint: Paint, steps: Steps) -> None:
+        if isinstance(paint, str):
+            r, g, b = _rgb(paint)
+            lines.append(f"{r:.4f} {g:.4f} {b:.4f} setrgbcolor")
+        else:
+            lines.append("gsave")
         lines.append("newpath")
         for cmd, a in steps:
             if cmd == "M":
@@ -229,10 +339,24 @@ def render_tag_eps(matrix: QrMatrix, design: TagDesign, tag_mm: float, title: st
                 )
             else:
                 lines.append("closepath")
-        lines.append("fill")
+        if isinstance(paint, str):
+            lines.append("fill")
+            return
+        if paint.kind == "radial":
+            cx, cy, r = paint.coords
+            shading_type, coords = 3, f"{_num(cx)} {flip(cy)} 0 {_num(cx)} {flip(cy)} {_num(r)}"
+        else:
+            x0, y0, x1, y1 = paint.coords
+            shading_type, coords = 2, f"{_num(x0)} {flip(y0)} {_num(x1)} {flip(y1)}"
+        lines.append("clip")
+        lines.append(
+            f"<< /ShadingType {shading_type} /ColorSpace /DeviceRGB /Coords [{coords}] /Extend [true true] "
+            f"/Function {_ps_function(paint.stops)} >> shfill"
+        )
+        lines.append("grestore")
 
-    for color, steps in _all_shapes(design):
-        emit(color, steps)
+    for paint, steps in _all_shapes(design):
+        emit(paint, steps)
     r, g, b = _rgb(design.ink)
     lines.append(f"{r:.4f} {g:.4f} {b:.4f} setrgbcolor")
     module = QR_WIDTH / matrix.size
@@ -259,8 +383,7 @@ def render_tag_pdf(matrices: Iterable[QrMatrix], design: TagDesign, tag_mm: floa
 
     shapes = _all_shapes(design)
     for matrix in matrices:
-        for color, steps in shapes:
-            pdf.setFillColorRGB(*_rgb(color))
+        for paint, steps in shapes:
             path = pdf.beginPath()
             for cmd, a in steps:
                 if cmd == "M":
@@ -271,7 +394,21 @@ def render_tag_pdf(matrices: Iterable[QrMatrix], design: TagDesign, tag_mm: floa
                     path.curveTo(px(a[0]), py(a[1]), px(a[2]), py(a[3]), px(a[4]), py(a[5]))
                 else:
                     path.close()
-            pdf.drawPath(path, stroke=0, fill=1, fillMode=FILL_NON_ZERO)
+            if isinstance(paint, str):
+                pdf.setFillColorRGB(*_rgb(paint))
+                pdf.drawPath(path, stroke=0, fill=1, fillMode=FILL_NON_ZERO)
+                continue
+            pdf.saveState()
+            pdf.clipPath(path, stroke=0, fill=0, fillMode=FILL_NON_ZERO)
+            colors = [HexColor(color) for _, color in paint.stops]
+            positions = [offset for offset, _ in paint.stops]
+            if paint.kind == "radial":
+                cx, cy, r = paint.coords
+                pdf.radialGradient(px(cx), py(cy), px(r), colors, positions)
+            else:
+                x0, y0, x1, y1 = paint.coords
+                pdf.linearGradient(px(x0), py(y0), px(x1), py(y1), colors, positions)
+            pdf.restoreState()
         pdf.setFillColorRGB(*_rgb(design.ink))
         module = QR_WIDTH / matrix.size
         for x, y, w in _qr_rects(matrix):
