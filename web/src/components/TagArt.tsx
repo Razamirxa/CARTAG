@@ -7,10 +7,10 @@ import { CONTACT, LOGO_CAR, LOGO_TAG, SCAN } from "./tagText";
  * text and QR, `accent` the corner mark and `edge` the outline of a colour chip.
  */
 export const TAG_COLOURS: Record<ProductColour, { body: string; ink: string; accent: string; edge: string; name: string }> = {
-  BLACK: { body: "#0A0A0A", ink: "#FAFAFA", accent: "#C4F818", edge: "#2E2E2E", name: "Black" },
-  IVORY: { body: "#F5F1E8", ink: "#0A0A0A", accent: "#D10A1D", edge: "#D9D0BC", name: "Ivory" },
-  BURGUNDY: { body: "#47031C", ink: "#FAFAFA", accent: "#D6D5D7", edge: "#6B1F37", name: "Burgundy" },
-  GLACIER: { body: "#BFD4E7", ink: "#0A0A0A", accent: "#7194B2", edge: "#9FB3C8", name: "Glacier" },
+  BLACK: { body: "#0D0D0D", ink: "#FAFAFA", accent: "#C4FA1C", edge: "#2E2E2E", name: "Black" },
+  IVORY: { body: "#F9F6F1", ink: "#0A0A0A", accent: "#D20C1E", edge: "#D9D0BC", name: "Ivory" },
+  BURGUNDY: { body: "#47031C", ink: "#FAFAFA", accent: "#F7F7F7", edge: "#6B1F37", name: "Burgundy" },
+  GLACIER: { body: "#BBD0E3", ink: "#0A0A0A", accent: "#7194B2", edge: "#9FB3C8", name: "Glacier" },
 };
 
 // The tag geometry on a 100 x 100 grid, as in the print files: corner radius 13.5, the QR 41 wide.

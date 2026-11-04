@@ -64,7 +64,10 @@ def test_every_approved_design_has_its_corner_mark():
 
 def test_the_website_draws_the_same_tag_as_the_print_files():
     web = Path(__file__).resolve().parent.parent / "web/src/components"
-    assert _svg_path(_accent_ops()) in (web / "TagArt.tsx").read_text(encoding="utf-8")
+    tag_art = (web / "TagArt.tsx").read_text(encoding="utf-8")
+    assert _svg_path(_accent_ops()) in tag_art
+    for d in DESIGNS.values():
+        assert f'body: "{d.background}", ink: "{d.ink}", accent: "{d.accent}"' in tag_art
     site_text = (web / "tagText.ts").read_text(encoding="utf-8")
     assert all(f'"{d}"' in site_text for d in (tag_text.LOGO_CAR, tag_text.LOGO_TAG, tag_text.CONTACT, tag_text.SCAN))
 

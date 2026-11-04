@@ -52,17 +52,16 @@ class TagDesign:
         return sum(_rgb(self.background)) < sum(_rgb(self.ink))
 
 
-# The four approved designs. Black and Ivory are the client's locked palette. The tag burgundy is the dark
-# wine of the final artwork (darker than the website's #74152B); it, Glacier and the corner colours were
-# sampled from that artwork, so they need confirming against the manufacturer's colour reference.
-# Burgundy's silver corner is a flat light grey here; a metallic ink or foil is the printer's call.
+# The four approved designs. Tag and corner colours are the client's own codes for the tags (the tag
+# burgundy is darker than the website's #74152B). Burgundy's silver corner is a flat near-white here; a
+# metallic ink or foil is the printer's call.
 DESIGNS: dict[str, TagDesign] = {
     design.key: design
     for design in (
-        TagDesign("ivory", "Ivory", "#F5F1E8", "#0A0A0A", "#D10A1D"),
-        TagDesign("glacier", "Glacier", "#BFD4E7", "#0A0A0A", "#7194B2"),
-        TagDesign("burgundy", "Burgundy", "#47031C", "#FAFAFA", "#D6D5D7"),
-        TagDesign("black", "Black", "#0A0A0A", "#FAFAFA", "#C4F818"),
+        TagDesign("ivory", "Ivory", "#F9F6F1", "#0A0A0A", "#D20C1E"),
+        TagDesign("glacier", "Glacier", "#BBD0E3", "#0A0A0A", "#7194B2"),
+        TagDesign("burgundy", "Burgundy", "#47031C", "#FAFAFA", "#F7F7F7"),
+        TagDesign("black", "Black", "#0D0D0D", "#FAFAFA", "#C4FA1C"),
     )
 }
 

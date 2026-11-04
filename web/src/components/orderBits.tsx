@@ -57,10 +57,10 @@ export function PaymentBadge({ status }: { status: PaymentStatus }) {
 }
 
 export const COLOUR_SWATCH: Record<string, string> = {
-  BLACK: "#0a0a0a",
-  IVORY: "#f5f1e8",
+  BLACK: "#0d0d0d",
+  IVORY: "#f9f6f1",
   BURGUNDY: "#47031c",
-  GLACIER: "#bfd4e7",
+  GLACIER: "#bbd0e3",
 };
 
 export const SIZE_LABEL: Record<string, string> = { COMPACT: "Compact", STANDARD: "Standard", LARGE: "Large" };
