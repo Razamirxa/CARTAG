@@ -3,18 +3,18 @@
 Everything is drawn on a 100 x 100 tag and scaled to the physical size, so the three formats agree.
 The text is already outlines (tag_text.py), so a print shop needs no font.
 
-The look follows the client's mockups: a slightly darker band along the bottom edge for the tag's
-thickness, a soft glow on the face that darkens towards the corners, and a shaded corner mark (polished
-silver on Burgundy). The shading sits under the text and the QR, which stay flat and solid so a camera
-sees full contrast.
+The look follows the client's mockups, lit from above: a thin dark line round the edge (a wider one
+along the bottom for the tag's thickness), a thin bright bevel just inside it, a face that is a little
+lighter at the top, and a shaded corner mark (polished silver on Burgundy). The shading sits under the
+text and the QR, which stay flat and solid so a camera sees full contrast.
 """
 
+import colorsys
 import math
 import re
 from collections.abc import Iterable
 from dataclasses import dataclass
 from io import BytesIO
-from typing import Literal
 
 from reportlab.lib.colors import HexColor
 from reportlab.pdfgen import canvas
@@ -39,22 +39,25 @@ ACCENT_END = 1.4
 """How far the two sharp ends are rounded off."""
 KAPPA = 0.5522847498
 """Control-point distance that makes a cubic curve a good quarter circle."""
-EDGE = 1.4
-"""Height of the band along the bottom that shows the tag's thickness; the face ends this far above."""
-GLOW = (40.0, 30.0, 92.0)
-"""Centre and radius of the face shading: lightest near the top left, darkest in the far corners."""
+EDGE = 0.8
+"""Width of the dark band along the bottom that shows the tag's thickness."""
+BEVEL = 0.7
+"""Width of the bright bevel that runs round the edge of the face."""
+DOWN = (50.0, 0.0, 50.0, 100.0)
+"""Light comes from above: the body shading runs straight down the tag."""
 ACCENT_SHINE = (97.0, 3.0, 88.5, 12.2)
 """The corner mark's shading runs from the tag's corner to the middle of the mark's straight side."""
 
 TEXT_PATHS = (tag_text.LOGO_CAR, tag_text.LOGO_TAG, tag_text.CONTACT, tag_text.SCAN)
 
+WHITE, BLACK = "#FFFFFF", "#000000"
+
 
 @dataclass(frozen=True)
 class Gradient:
-    """A shading in tag units (y down). Linear coords are x0 y0 x1 y1, radial ones cx cy r."""
+    """A straight shading in tag units (y down) from (x0, y0) to (x1, y1), through (offset, colour) stops."""
 
-    kind: Literal["linear", "radial"]
-    coords: tuple[float, ...]
+    coords: tuple[float, float, float, float]
     stops: tuple[tuple[float, str], ...]
 
 
@@ -65,10 +68,20 @@ def _rgb(color: str) -> tuple[float, float, float]:
     return tuple(int(color[i : i + 2], 16) / 255 for i in (1, 3, 5))  # type: ignore[return-value]
 
 
+def _hex(rgb: Iterable[float]) -> str:
+    return "#" + "".join(f"{round(c * 255):02X}" for c in rgb)
+
+
 def _mix(color: str, toward: str, amount: float) -> str:
     """`color` moved `amount` (0 to 1) of the way to `toward`, as #RRGGBB."""
-    mixed = (a + (b - a) * amount for a, b in zip(_rgb(color), _rgb(toward), strict=True))
-    return "#" + "".join(f"{round(c * 255):02X}" for c in mixed)
+    return _hex(a + (b - a) * amount for a, b in zip(_rgb(color), _rgb(toward), strict=True))
+
+
+def _lighten(color: str, amount: float) -> str:
+    """`color` with its lightness raised by `amount` (0 to 1) and its hue kept, so a lit edge of a burgundy
+    tag stays burgundy instead of turning pink-grey. Some saturation goes, as on a real lit edge."""
+    h, lightness, s = colorsys.rgb_to_hls(*_rgb(color))
+    return _hex(colorsys.hls_to_rgb(h, min(1.0, lightness + amount), s * 0.6))
 
 
 @dataclass(frozen=True)
@@ -80,6 +93,14 @@ class TagDesign:
     """Colour of the text and the QR modules."""
     accent: str | None
     """Colour of the corner mark, if the design has one."""
+    edge_dark: float
+    """How far the thickness band along the bottom is mixed towards black."""
+    bevel_light: float
+    """How much lighter the bevel is at the top edge (it fades to half of that at the bottom)."""
+    face_light: float
+    """How far the top of the face is mixed towards white."""
+    face_dark: float
+    """How far the bottom of the face is mixed towards black."""
     metallic: bool = False
     """The corner mark is polished silver rather than a flat colour."""
 
@@ -89,22 +110,19 @@ class TagDesign:
         return sum(_rgb(self.background)) < sum(_rgb(self.ink))
 
     @property
-    def _near_black(self) -> bool:
-        return sum(_rgb(self.background)) < 0.3
+    def edge(self) -> str:
+        return _mix(self.background, BLACK, self.edge_dark)
 
     @property
-    def edge(self) -> str:
-        """The thickness band: darker than the face, or lighter on a black tag where darker would not show."""
-        if self._near_black:
-            return _mix(self.background, "#FFFFFF", 0.16)
-        return _mix(self.background, "#000000", 0.28)
+    def bevel(self) -> Gradient:
+        top, bottom = (_lighten(self.background, amount) for amount in (self.bevel_light, self.bevel_light / 2))
+        return Gradient(DOWN, ((0.0, top), (1.0, bottom)))
 
     @property
     def face(self) -> Gradient:
-        """The face: a little lighter near the top left, the client's colour in the middle, darker at the corners."""
-        light, dark = (0.12, 0.45) if self.inverted else (0.5, 0.07)
-        stops = ((0.0, _mix(self.background, "#FFFFFF", light)), (0.6, self.background))
-        return Gradient("radial", GLOW, (*stops, (1.0, _mix(self.background, "#000000", dark))))
+        """The client's colour across the middle, a little lighter at the top and darker at the bottom."""
+        top, bottom = _mix(self.background, WHITE, self.face_light), _mix(self.background, BLACK, self.face_dark)
+        return Gradient(DOWN, ((0.0, top), (0.5, self.background), (1.0, bottom)))
 
     @property
     def accent_paint(self) -> Gradient | None:
@@ -113,20 +131,21 @@ class TagDesign:
         if self.metallic:
             stops = ((0.0, "#9C9C9E"), (0.35, "#E2E2E4"), (0.55, "#FFFFFF"), (0.75, self.accent), (1.0, "#B9B9BB"))
         else:
-            stops = ((0.0, _mix(self.accent, "#000000", 0.18)), (0.6, self.accent), (1.0, self.accent))
-        return Gradient("linear", ACCENT_SHINE, stops)
+            stops = ((0.0, _mix(self.accent, BLACK, 0.18)), (0.6, self.accent), (1.0, self.accent))
+        return Gradient(ACCENT_SHINE, stops)
 
 
 # The four approved designs. Tag and corner colours are the client's own codes for the tags (the tag
-# burgundy is darker than the website's #74152B). Burgundy's corner is drawn as polished silver; a
-# metallic ink or foil is the printer's call.
+# burgundy is darker than the website's #74152B). The edge, bevel and face shading were measured from
+# the client's mockups. Burgundy's corner is drawn as polished silver; a metallic ink or foil is the
+# printer's call.
 DESIGNS: dict[str, TagDesign] = {
     design.key: design
     for design in (
-        TagDesign("ivory", "Ivory", "#F9F6F1", "#0A0A0A", "#D20C1E"),
-        TagDesign("glacier", "Glacier", "#BBD0E3", "#0A0A0A", "#7194B2"),
-        TagDesign("burgundy", "Burgundy", "#47031C", "#FAFAFA", "#F7F7F7", metallic=True),
-        TagDesign("black", "Black", "#0D0D0D", "#FAFAFA", "#C4FA1C"),
+        TagDesign("ivory", "Ivory", "#F9F6F1", "#0A0A0A", "#D20C1E", 0.06, 0.04, 0.0, 0.02),
+        TagDesign("glacier", "Glacier", "#BBD0E3", "#0A0A0A", "#7194B2", 0.3, 0.12, 0.3, 0.02),
+        TagDesign("burgundy", "Burgundy", "#47031C", "#FAFAFA", "#F7F7F7", 0.75, 0.2, 0.05, 0.13, metallic=True),
+        TagDesign("black", "Black", "#0D0D0D", "#FAFAFA", "#C4FA1C", 0.45, 0.2, 0.03, 0.15),
     )
 }
 
@@ -188,14 +207,11 @@ def render_tag_svg(matrix: QrMatrix, design: TagDesign, tag_mm: float) -> str:
 
 def _svg_gradient(gradient_id: str, gradient: Gradient) -> str:
     stops = "".join(f'<stop offset="{_num(offset)}" stop-color="{color}"/>' for offset, color in gradient.stops)
-    if gradient.kind == "radial":
-        cx, cy, r = gradient.coords
-        attrs = f'cx="{_num(cx)}" cy="{_num(cy)}" r="{_num(r)}"'
-    else:
-        x1, y1, x2, y2 = gradient.coords
-        attrs = f'x1="{_num(x1)}" y1="{_num(y1)}" x2="{_num(x2)}" y2="{_num(y2)}"'
-    tag = f"{gradient.kind}Gradient"
-    return f'<{tag} id="{gradient_id}" gradientUnits="userSpaceOnUse" {attrs}>{stops}</{tag}>'
+    x1, y1, x2, y2 = (_num(n) for n in gradient.coords)
+    return (
+        f'<linearGradient id="{gradient_id}" gradientUnits="userSpaceOnUse" x1="{x1}" y1="{y1}" x2="{x2}" y2="{y2}">'
+        f"{stops}</linearGradient>"
+    )
 
 
 _COMMAND = re.compile(r"([MLCZ])([^MLCZ]*)")
@@ -209,22 +225,25 @@ def _commands(path: str) -> list[tuple[str, list[float]]]:
 Steps = list[tuple[str, tuple[float, ...]]]
 
 
-def _outline_ops(bottom: float = 100.0) -> Steps:
+def _outline_ops(inset: float = 0.0, bottom_inset: float | None = None) -> Steps:
     """The tag outline (y down, 100 units): straight edges joined by quarter-circle corners.
 
-    `bottom` lifts the lower edge, which gives the face that sits above the thickness band.
+    `inset` moves the edges in (the corners keep their centres), which gives the bevel and the face inside
+    the dark edge; `bottom_inset` moves the bottom edge by a different amount.
     """
-    r, k, b = RADIUS, RADIUS * KAPPA, bottom
+    lo, hi, b = inset, 100 - inset, 100 - (inset if bottom_inset is None else bottom_inset)
+    r = RADIUS - inset
+    k = r * KAPPA
     return [
-        ("M", (r, 0.0)),
-        ("L", (100 - r, 0.0)),
-        ("C", (100 - r + k, 0.0, 100.0, r - k, 100.0, r)),
-        ("L", (100.0, b - r)),
-        ("C", (100.0, b - r + k, 100 - r + k, b, 100 - r, b)),
-        ("L", (r, b)),
-        ("C", (r - k, b, 0.0, b - r + k, 0.0, b - r)),
-        ("L", (0.0, r)),
-        ("C", (0.0, r - k, r - k, 0.0, r, 0.0)),
+        ("M", (lo + r, lo)),
+        ("L", (hi - r, lo)),
+        ("C", (hi - r + k, lo, hi, lo + r - k, hi, lo + r)),
+        ("L", (hi, b - r)),
+        ("C", (hi, b - r + k, hi - r + k, b, hi - r, b)),
+        ("L", (lo + r, b)),
+        ("C", (lo + r - k, b, lo, b - r + k, lo, b - r)),
+        ("L", (lo, lo + r)),
+        ("C", (lo, lo + r - k, lo + r - k, lo, lo + r, lo)),
         ("Z", ()),
     ]
 
@@ -272,7 +291,8 @@ def _shaded_shapes(design: TagDesign) -> list[tuple[str, Paint, Steps]]:
     """The tag body and corner mark as (name, paint, steps), from back to front."""
     shapes: list[tuple[str, Paint, Steps]] = [
         ("tag", design.edge, _outline_ops()),
-        ("face", design.face, _outline_ops(100 - EDGE)),
+        ("bevel", design.bevel, _outline_ops(0.0, EDGE)),
+        ("face", design.face, _outline_ops(BEVEL, EDGE + BEVEL)),
     ]
     if design.accent_paint:
         shapes.append(("corner", design.accent_paint, _accent_ops()))
@@ -342,16 +362,11 @@ def render_tag_eps(matrix: QrMatrix, design: TagDesign, tag_mm: float, title: st
         if isinstance(paint, str):
             lines.append("fill")
             return
-        if paint.kind == "radial":
-            cx, cy, r = paint.coords
-            shading_type, coords = 3, f"{_num(cx)} {flip(cy)} 0 {_num(cx)} {flip(cy)} {_num(r)}"
-        else:
-            x0, y0, x1, y1 = paint.coords
-            shading_type, coords = 2, f"{_num(x0)} {flip(y0)} {_num(x1)} {flip(y1)}"
+        x0, y0, x1, y1 = paint.coords
         lines.append("clip")
         lines.append(
-            f"<< /ShadingType {shading_type} /ColorSpace /DeviceRGB /Coords [{coords}] /Extend [true true] "
-            f"/Function {_ps_function(paint.stops)} >> shfill"
+            f"<< /ShadingType 2 /ColorSpace /DeviceRGB /Coords [{_num(x0)} {flip(y0)} {_num(x1)} {flip(y1)}] "
+            f"/Extend [true true] /Function {_ps_function(paint.stops)} >> shfill"
         )
         lines.append("grestore")
 
@@ -402,12 +417,8 @@ def render_tag_pdf(matrices: Iterable[QrMatrix], design: TagDesign, tag_mm: floa
             pdf.clipPath(path, stroke=0, fill=0, fillMode=FILL_NON_ZERO)
             colors = [HexColor(color) for _, color in paint.stops]
             positions = [offset for offset, _ in paint.stops]
-            if paint.kind == "radial":
-                cx, cy, r = paint.coords
-                pdf.radialGradient(px(cx), py(cy), px(r), colors, positions)
-            else:
-                x0, y0, x1, y1 = paint.coords
-                pdf.linearGradient(px(x0), py(y0), px(x1), py(y1), colors, positions)
+            x0, y0, x1, y1 = paint.coords
+            pdf.linearGradient(px(x0), py(y0), px(x1), py(y1), colors, positions)
             pdf.restoreState()
         pdf.setFillColorRGB(*_rgb(design.ink))
         module = QR_WIDTH / matrix.size

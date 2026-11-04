@@ -9,6 +9,7 @@ type TagColour = {
   edge: string;
   name: string;
   side: string;
+  bevel: [string, string];
   glow: string;
   shade: string;
   accentShade: string | null;
@@ -16,15 +17,16 @@ type TagColour = {
 
 /**
  * The four tag colours, the same as the print files (cartag/qr/tag_art.py). `body` is the tag, `ink` the
- * text and QR, `accent` the corner mark and `edge` the outline of a colour chip. `side` is the band that
- * shows the tag's thickness, `glow` and `shade` the light and dark ends of the face shading, and
- * `accentShade` the dark end of the corner mark (null where the corner is polished silver).
+ * text and QR, `accent` the corner mark and `edge` the outline of a colour chip. `side` is the band along
+ * the bottom that shows the tag's thickness, `bevel` the bright rim round the face (top, bottom), `glow`
+ * and `shade` the top and bottom of the face shading, and `accentShade` the dark end of the corner mark
+ * (null where the corner is polished silver).
  */
 export const TAG_COLOURS: Record<ProductColour, TagColour> = {
-  BLACK: { body: "#0D0D0D", ink: "#FAFAFA", accent: "#C4FA1C", edge: "#2E2E2E", name: "Black", side: "#343434", glow: "#2A2A2A", shade: "#070707", accentShade: "#A1CD17" },
-  IVORY: { body: "#F9F6F1", ink: "#0A0A0A", accent: "#D20C1E", edge: "#D9D0BC", name: "Ivory", side: "#B3B1AE", glow: "#FCFBF8", shade: "#E8E5E0", accentShade: "#AC0A19" },
-  BURGUNDY: { body: "#47031C", ink: "#FAFAFA", accent: "#F7F7F7", edge: "#6B1F37", name: "Burgundy", side: "#330214", glow: "#5D2137", shade: "#27020F", accentShade: null },
-  GLACIER: { body: "#BBD0E3", ink: "#0A0A0A", accent: "#7194B2", edge: "#9FB3C8", name: "Glacier", side: "#8796A3", glow: "#DDE8F1", shade: "#AEC1D3", accentShade: "#5D7992" },
+  BLACK: { body: "#0D0D0D", ink: "#FAFAFA", accent: "#C4FA1C", edge: "#2E2E2E", name: "Black", side: "#070707", bevel: ["#404040", "#272727"], glow: "#141414", shade: "#0B0B0B", accentShade: "#A1CD17" },
+  IVORY: { body: "#F9F6F1", ink: "#0A0A0A", accent: "#D20C1E", edge: "#D9D0BC", name: "Ivory", side: "#EAE7E3", bevel: ["#FFFFFF", "#FBFAF9"], glow: "#F9F6F1", shade: "#F4F1EC", accentShade: "#AC0A19" },
+  BURGUNDY: { body: "#47031C", ink: "#FAFAFA", accent: "#F7F7F7", edge: "#6B1F37", name: "Burgundy", side: "#120107", bevel: ["#89274B", "#611C35"], glow: "#501027", shade: "#3E0318", accentShade: null },
+  GLACIER: { body: "#BBD0E3", ink: "#0A0A0A", accent: "#7194B2", edge: "#9FB3C8", name: "Glacier", side: "#83929F", bevel: ["#E9EEF2", "#D6DFE6"], glow: "#CFDEEB", shade: "#B7CCDE", accentShade: "#5D7992" },
 };
 
 /** Polished silver for Burgundy's corner, as offset and colour. */
@@ -36,11 +38,12 @@ const SILVER: [number, string][] = [
   [1, "#B9B9BB"],
 ];
 
-// The tag geometry on a 100 x 100 grid, as in the print files: corner radius 13.5, the QR 41 wide, the
-// face 1.4 short of the bottom so the thickness band shows, the shading centred at (40, 30).
+// The tag geometry on a 100 x 100 grid, as in the print files: corner radius 13.5, the QR 41 wide, a
+// 0.8 thickness band along the bottom, a 0.7 bevel round the face, all shading running straight down.
 const RADIUS = 13.5;
 const QR = { left: 29.5, top: 32.3, width: 41 };
-const FACE_HEIGHT = 100 - 1.4;
+const EDGE = 0.8;
+const BEVEL = 0.7;
 /** The corner mark, copied from _accent_ops in cartag/qr/tag_art.py: inset 3 from the edges, ends rounded. */
 const ACCENT_PATH =
   "M83 3L86.5 3C92.299 3 97 7.701 97 13.5L97 18.6C97 19.533 96.687 19.654 96.06 18.962L82.54 4.038C81.913 3.346 82.067 3 83 3Z";
@@ -75,11 +78,15 @@ export function TagArt({
         <clipPath id={`${id}-shape`}>
           <rect width="100" height="100" rx={RADIUS} />
         </clipPath>
-        <radialGradient id={`${id}-face`} gradientUnits="userSpaceOnUse" cx="40" cy="30" r="92">
+        <linearGradient id={`${id}-bevel`} gradientUnits="userSpaceOnUse" x1="50" y1="0" x2="50" y2="100">
+          <stop offset="0" stopColor={c.bevel[0]} />
+          <stop offset="1" stopColor={c.bevel[1]} />
+        </linearGradient>
+        <linearGradient id={`${id}-face`} gradientUnits="userSpaceOnUse" x1="50" y1="0" x2="50" y2="100">
           <stop offset="0" stopColor={c.glow} />
-          <stop offset="0.6" stopColor={c.body} />
+          <stop offset="0.5" stopColor={c.body} />
           <stop offset="1" stopColor={c.shade} />
-        </radialGradient>
+        </linearGradient>
         <linearGradient id={`${id}-corner`} gradientUnits="userSpaceOnUse" x1="97" y1="3" x2="88.5" y2="12.2">
           {(c.accentShade ? ([[0, c.accentShade], [0.6, c.accent], [1, c.accent]] as [number, string][]) : SILVER).map(
             ([offset, color]) => (
@@ -94,7 +101,15 @@ export function TagArt({
         )}
       </defs>
       <rect width="100" height="100" rx={RADIUS} fill={c.side} filter={shadow ? `url(#${id}-shadow)` : undefined} />
-      <rect width="100" height={FACE_HEIGHT} rx={RADIUS} fill={`url(#${id}-face)`} />
+      <rect width="100" height={100 - EDGE} rx={RADIUS} fill={`url(#${id}-bevel)`} />
+      <rect
+        x={BEVEL}
+        y={BEVEL}
+        width={100 - 2 * BEVEL}
+        height={100 - EDGE - 2 * BEVEL}
+        rx={RADIUS - BEVEL}
+        fill={`url(#${id}-face)`}
+      />
       <g clipPath={`url(#${id}-shape)`}>
         <path d={ACCENT_PATH} fill={`url(#${id}-corner)`} />
         <g fill={c.ink}>

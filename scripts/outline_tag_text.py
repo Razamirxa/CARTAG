@@ -25,8 +25,8 @@ CENTRE_X = 50.0
 # Axes are (weight, width): CAR is the widest, heaviest cut; TAG is light at normal width.
 LOGO = {"baseline": 25.8, "cap": 8.7, "width": 64.0, "car": (900, 125), "tag": (330, 100)}
 LINES = {
-    "contact": {"text": "CONTACT THE OWNER", "baseline": 79.6, "cap": 3.0, "width": 64.0, "axes": (500, 100)},
-    "scan": {"text": "SCAN.", "baseline": 89.0, "cap": 4.3, "width": 21.0, "axes": (800, 100)},
+    "contact": {"text": "CONTACT THE OWNER", "baseline": 82.0, "cap": 3.0, "width": 64.0, "axes": (500, 100)},
+    "scan": {"text": "SCAN.", "baseline": 90.8, "cap": 3.65, "width": 19.8, "axes": (800, 100)},
 }
 
 

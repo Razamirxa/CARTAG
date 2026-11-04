@@ -74,7 +74,7 @@ def test_the_shading_keeps_the_qr_at_full_contrast(key):
         assert (light + 0.05) / (dark + 0.05) >= 7, color
     # The shading is drawn under the QR, never over it.
     svg = render_tag_svg(MATRIX, design, 30)
-    assert svg.index('id="face"') < svg.index('id="qr"') and "radialGradient" in svg
+    assert svg.index('id="face"') < svg.index('id="qr"') and 'id="face-shade"' in svg
     assert "shfill" in render_tag_eps(MATRIX, design, 30)
 
 
@@ -90,7 +90,9 @@ def test_the_website_draws_the_same_tag_as_the_print_files():
     for d in DESIGNS.values():
         assert f'body: "{d.background}", ink: "{d.ink}", accent: "{d.accent}"' in tag_art
         glow, _, shade = (color for _, color in d.face.stops)
-        assert f'side: "{d.edge}", glow: "{glow}", shade: "{shade}"' in tag_art
+        bevel_top, bevel_bottom = (color for _, color in d.bevel.stops)
+        expected = f'side: "{d.edge}", bevel: ["{bevel_top}", "{bevel_bottom}"], glow: "{glow}", shade: "{shade}"'
+        assert expected in tag_art
         corner = d.accent_paint.stops
         if d.metallic:
             assert all(f'[{offset:g}, "{color}"]' in tag_art for offset, color in corner)
